@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Offline · Nila Gym</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0; min-height: 100dvh; display: grid; place-items: center;
+        font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #fbfaed; color: #0a0a08; text-align: center; padding: 16px;
+      }
+      img { width: 160px; height: auto; }
+      h1 { font-size: 20px; margin: 20px 0 8px; }
+      p { margin: 0 0 20px; color: #6f6c5c; line-height: 1.5; }
+      button {
+        font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 8px;
+        border: 0; background: #0a0a08; color: #fbfaed;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/logo.png" alt="Nila Gym" />
+      <h1>You're offline</h1>
+      <p>Nila Gym needs the internet to save your workouts and meals.<br />Check your connection and try again.</p>
+      <button onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>
