@@ -1,6 +1,11 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { Utensils } from "lucide-react";
+import Link from "next/link";
+import { GlassWater, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MacroRings, targetsOf } from "@/components/diet/macro-rings";
+import { getDayEntries } from "@/lib/diet";
+import { sum } from "@/lib/nutrition";
 import { TodayWorkout } from "@/components/workouts/today-workout";
 import { getActiveWorkout, getHistory, getRoutines, getSchedule } from "@/lib/workouts";
 import { getHousehold } from "@/lib/household";
@@ -24,11 +29,12 @@ async function Today() {
   const { me, partner } = await getHousehold();
   const now = new Date();
   const today = todayIST(now);
-  const [routines, schedule, active, history] = await Promise.all([
+  const [routines, schedule, active, history, meals] = await Promise.all([
     getRoutines(me.id),
     getSchedule(me.id),
     getActiveWorkout(me.id),
     getHistory(me.id, 3),
+    getDayEntries(me.id, today),
   ]);
   return (
     <>
@@ -58,8 +64,17 @@ async function Today() {
           doneToday={history.filter((w) => w.date === today)}
         />
       </section>
-      <ComingSoon icon={Utensils} phase={2}>
-        Meals, water and habits for the day will show up here too.
+      <section className="mb-6">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Food</h2>
+          <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/diet" />}>
+            <Plus /> Log food
+          </Button>
+        </div>
+        <MacroRings totals={sum(meals)} targets={targetsOf(me)} />
+      </section>
+      <ComingSoon icon={GlassWater} phase={3}>
+        Water and daily habits will show up here too.
       </ComingSoon>
     </>
   );

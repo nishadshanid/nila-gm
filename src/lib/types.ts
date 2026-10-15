@@ -109,3 +109,39 @@ export type WorkoutSet = {
   done: boolean;
   done_at: string | null;
 };
+
+export type Meal = "breakfast" | "lunch" | "snack" | "dinner";
+/** g / ml: nutrition per 100. piece: per one `serving` (a roti, a scoop). */
+export type FoodUnit = "g" | "ml" | "piece";
+
+export type Nutrients = {
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fibre_g: number;
+};
+
+export type Food = Nutrients & {
+  id: string;
+  /** null = built in. */
+  owner_id: string | null;
+  name: string;
+  unit: FoodUnit;
+  serving: string | null;
+  default_amount: number;
+};
+
+export type MealEntry = Nutrients & {
+  id: string;
+  owner_id: string;
+  date: string;
+  meal: Meal;
+  /** null for a quick add. */
+  food_id: string | null;
+  name: string;
+  amount: number;
+  unit: FoodUnit | null;
+  serving: string | null;
+  created_at: string;
+};
