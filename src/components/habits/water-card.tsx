@@ -1,7 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { Flame, Settings2, Undo2 } from "lucide-react";
+import { Droplet, Flame, Settings2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -57,7 +57,18 @@ export function WaterCard({
 
   return (
     <div className="bg-card rounded-xl border p-4">
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-full",
+            done
+              ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          <Droplet className="size-4" />
+        </span>
         <div className="min-w-0 flex-1">
           <p className="font-semibold">
             Water
