@@ -23,12 +23,21 @@ import { saveTargets } from "../actions";
 const str = (n: number | null) => (n === null ? "" : String(n));
 const intOrNull = (v: string) => (v.trim() === "" ? null : Math.round(Number(v)));
 
-export function TargetsForm({ profile, today }: { profile: Profile; today: string }) {
+export function TargetsForm({
+  profile,
+  today,
+  latestWeight,
+}: {
+  profile: Profile;
+  today: string;
+  /** From the last weigh-in, if any. */
+  latestWeight: number | null;
+}) {
   const router = useRouter();
   const [sex, setSex] = useState<"male" | "female" | "">(profile.sex ?? "");
   const [height, setHeight] = useState(str(profile.height_cm));
   const [birthYear, setBirthYear] = useState(str(profile.birth_year));
-  const [weight, setWeight] = useState("");
+  const [weight, setWeight] = useState(str(latestWeight));
   const [activity, setActivity] = useState<Activity>(profile.activity);
   const [goal, setGoal] = useState<Goal>(profile.goal);
   const [kcal, setKcal] = useState(str(profile.target_kcal));
@@ -166,7 +175,7 @@ export function TargetsForm({ profile, today }: { profile: Profile; today: strin
         </Button>
         {!stats && (
           <p className="text-muted-foreground -mt-2 text-center text-xs">
-            Fill in all of the above to get a suggestion. Your weight is only used for this.
+            Fill in all of the above to get a suggestion.
           </p>
         )}
       </section>

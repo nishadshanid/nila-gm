@@ -165,3 +165,28 @@ export type Habit = {
 export type HabitLog = { habit_id: string; date: string; value: number };
 
 export type WaterLog = { id: string; date: string; ml: number; created_at: string };
+
+export type BodyMetric = {
+  id: string;
+  owner_id: string;
+  date: string;
+  weight_kg: number | null;
+  body_fat_pct: number | null;
+  waist_cm: number | null;
+  chest_cm: number | null;
+  arms_cm: number | null;
+  hips_cm: number | null;
+  thighs_cm: number | null;
+  notes: string | null;
+};
+
+export type Pose = "front" | "side" | "back";
+
+export type ProgressPhoto = {
+  id: string;
+  date: string;
+  pose: Pose;
+  path: string;
+  width: number | null;
+  height: number | null;
+};

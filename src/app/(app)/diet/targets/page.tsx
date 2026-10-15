@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { PageHeader } from "@/components/page-header";
 import { getHousehold } from "@/lib/household";
 import { todayIST } from "@/lib/dates";
+import { getLatestWeight } from "@/lib/body-data";
 import { TargetsForm } from "./targets-form";
 
 export const metadata: Metadata = { title: "Diet targets" };
@@ -11,7 +12,8 @@ export const metadata: Metadata = { title: "Diet targets" };
 async function Form() {
   await connection();
   const { me } = await getHousehold();
-  return <TargetsForm profile={me} today={todayIST()} />;
+  const weight = await getLatestWeight(me.id);
+  return <TargetsForm profile={me} today={todayIST()} latestWeight={weight} />;
 }
 
 export default function TargetsPage() {
