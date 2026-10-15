@@ -29,6 +29,20 @@ export async function getBodyMetrics(ownerId: string): Promise<BodyMetric[]> {
   });
 }
 
+/** The date of the latest weigh-in, or null. */
+export async function getLastWeighInDate(ownerId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("body_metrics")
+    .select("date")
+    .eq("owner_id", ownerId)
+    .not("weight_kg", "is", null)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.date ?? null;
+}
+
 /** The latest weight on record, for prefilling forms. */
 export async function getLatestWeight(ownerId: string): Promise<number | null> {
   const supabase = await createClient();

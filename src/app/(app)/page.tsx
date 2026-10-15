@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { ChevronRight, Plus, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MacroRings, targetsOf } from "@/components/diet/macro-rings";
 import { getDayEntries } from "@/lib/diet";
@@ -15,8 +15,9 @@ import { WaterCard } from "@/components/habits/water-card";
 import { getHabitDay } from "@/lib/habit-data";
 import { isDayComplete, isMet } from "@/lib/habits";
 import { routineForDay } from "@/lib/workout";
-import { PersonDot } from "@/components/person-dot";
-import { formatDay, isoWeekday, todayIST, TZ } from "@/lib/dates";
+import { daysBetween, formatDay, isoWeekday, todayIST, TZ } from "@/lib/dates";
+import { getLastWeighInDate } from "@/lib/body-data";
+import { PartnerLine } from "@/components/partner-line";
 
 function greeting(now: Date) {
   const hour = Number(
@@ -34,14 +35,21 @@ async function Today() {
   const { me, partner } = await getHousehold();
   const now = new Date();
   const today = todayIST(now);
-  const [routines, schedule, active, history, meals, day] = await Promise.all([
+  const [routines, schedule, active, history, meals, day, lastWeighIn] = await Promise.all([
     getRoutines(me.id),
     getSchedule(me.id),
     getActiveWorkout(me.id),
     getHistory(me.id, 3),
     getDayEntries(me.id, today),
     getHabitDay(me.id, today, me.target_water_ml),
+    getLastWeighInDate(me.id),
   ]);
+  // On your weigh-in day, or when it's been over a week, until you've weighed in today.
+  const weighInDue =
+    lastWeighIn !== today &&
+    (isoWeekday(today) === me.weigh_in_weekday ||
+      !lastWeighIn ||
+      daysBetween(lastWeighIn, today) > 7);
   const doneToday = history.filter((w) => w.date === today);
   const restDay = !active && routineForDay(schedule, isoWeekday(today)) === null;
   const complete = isDayComplete({
@@ -58,20 +66,29 @@ async function Today() {
           {greeting(now)}, {me.name}
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">{formatDay(today, "EEEE d MMMM")}</p>
-        {partner ? (
-          <Link
-            href="/partner"
-            className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm"
-          >
-            Training with <PersonDot profile={partner} />
-            <span className="underline">{partner.name}</span>
-          </Link>
-        ) : (
-          <p className="text-muted-foreground mt-1 text-sm">
-            Your partner hasn&apos;t been added yet. Create their account in Supabase.
-          </p>
-        )}
       </div>
+      {partner && (
+        <Suspense fallback={<div className="bg-muted mb-6 h-11 animate-pulse rounded-xl" />}>
+          <PartnerLine partner={partner} today={today} />
+        </Suspense>
+      )}
+      {weighInDue && (
+        <Link
+          href="/body"
+          className="bg-card hover:bg-muted/50 mb-6 flex items-center gap-3 rounded-xl border p-4"
+        >
+          <span className="bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full">
+            <Scale className="size-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Weigh-in day</span>
+            <span className="text-muted-foreground block text-sm">
+              Step on the scale before breakfast and log it.
+            </span>
+          </span>
+          <ChevronRight className="text-muted-foreground size-4" />
+        </Link>
+      )}
       {complete && (
         <DayComplete
           date={today}

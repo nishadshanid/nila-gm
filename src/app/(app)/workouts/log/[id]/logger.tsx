@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, EllipsisVertical, Plus, Trash2 } from "lucide-react";
+import { Check, CloudOff, EllipsisVertical, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,6 +19,8 @@ import { equipmentLabel, muscleLabel } from "@/lib/exercise-meta";
 import { formatClock, formatKg, formatSetShort, repsLabel, volume } from "@/lib/workout";
 import type { Exercise, ExerciseKind, WorkoutSet } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { dropSet, flushSets, queueSet } from "@/lib/set-queue";
+import type { SetValuesInput } from "@/lib/workout-schema";
 import { addSets, deleteWorkout, finishWorkout, removeSets, updateSet } from "../../actions";
 import { RestTimer } from "./rest-timer";
 
@@ -89,6 +91,51 @@ export function Logger({
   const [finishing, setFinishing] = useState(false);
   const [now, setNow] = useState<number | null>(null);
   const [, startTransition] = useTransition();
+  /** Sets saved on this phone while there was no signal, still to be sent. */
+  const [waiting, setWaiting] = useState(0);
+
+  /**
+   * Saves a set. With no signal it's kept on the phone and sent when the
+   * network is back, so logging never stops in a basement gym.
+   */
+  const sendSet = useCallback(
+    async (id: string, values: SetValuesInput) => {
+      if (!navigator.onLine) return setWaiting(queueSet(workout.id, id, values));
+      try {
+        const result = await updateSet(id, values);
+        if (!result.ok) toast.error(`Couldn't save the set: ${result.error}`);
+        setWaiting(dropSet(workout.id, id));
+      } catch {
+        setWaiting(queueSet(workout.id, id, values));
+      }
+    },
+    [workout.id],
+  );
+
+  const flush = useCallback(
+    () => flushSets(workout.id, updateSet).then((left) => (setWaiting(left), left)),
+    [workout.id],
+  );
+
+  /** Runs a server call; a dropped connection becomes a message, not a crash. */
+  const online = <T,>(call: () => Promise<T>) =>
+    call().catch(() => {
+      toast.error("No signal. Try that again when you're back online.");
+      return null;
+    });
+
+  // Send what's waiting when the signal comes back (and keep trying meanwhile).
+  useEffect(() => {
+    // Also picks up sets left on the phone if the app was closed offline.
+    const onOnline = () => void flush();
+    onOnline();
+    window.addEventListener("online", onOnline);
+    const id = setInterval(onOnline, 20_000);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      clearInterval(id);
+    };
+  }, [workout.id, flush]);
 
   // The workout clock.
   useEffect(() => {
@@ -138,10 +185,7 @@ export function Logger({
     const kind = kindOf(s.exercise_id);
     const values = valuesOf(f, kind);
     setSets((all) => all.map((x) => (x.id === s.id ? { ...x, ...values, done } : x)));
-    startTransition(async () => {
-      const result = await updateSet(s.id, { ...values, is_warmup: s.is_warmup, done });
-      if (!result.ok) toast.error(`Couldn't save the set: ${result.error}`);
-    });
+    startTransition(() => sendSet(s.id, { ...values, is_warmup: s.is_warmup, done }));
   }
 
   function edit(s: WorkoutSet, key: keyof Fields, value: string) {
@@ -157,15 +201,22 @@ export function Logger({
     const kind = kindOf(s.exercise_id);
     if (s.done) return save(s, fields[s.id], false);
 
-    // An empty set takes last time's numbers, or the routine's target reps.
+    // Boxes left empty take last time's numbers (what the hints show), or the
+    // routine's target reps. Typed numbers (or a carried weight) are kept.
     let f = fields[s.id];
-    if (isEmpty(f, kind)) {
-      const prev = previousFor(s, block);
-      const target = targets[s.exercise_id];
-      if (prev) f = fieldsOf(prev, kind);
-      else if (kind === "strength" && (target?.reps_max || target?.reps_min)) {
-        f = { ...f, reps: String(target.reps_max ?? target.reps_min) };
-      }
+    const prev = previousFor(s, block);
+    if (prev) {
+      const last = fieldsOf(prev, kind);
+      f = {
+        weight: f.weight || last.weight,
+        reps: f.reps || last.reps,
+        time: f.time || last.time,
+        km: f.km || last.km,
+      };
+    }
+    const target = targets[s.exercise_id];
+    if (kind === "strength" && !f.reps && (target?.reps_max || target?.reps_min)) {
+      f = { ...f, reps: String(target.reps_max ?? target.reps_min) };
     }
     if (isEmpty(f, kind) || (kind === "strength" && !f.reps)) {
       toast(kind === "strength" ? "Enter the reps first" : "Enter the time first");
@@ -190,23 +241,18 @@ export function Logger({
   function toggleWarmup(s: WorkoutSet) {
     const updated = { ...s, is_warmup: !s.is_warmup };
     setSets((all) => all.map((x) => (x.id === s.id ? updated : x)));
-    startTransition(async () => {
-      const values = valuesOf(fields[s.id], kindOf(s.exercise_id));
-      await updateSet(s.id, { ...values, is_warmup: updated.is_warmup, done: s.done });
-    });
+    const values = valuesOf(fields[s.id], kindOf(s.exercise_id));
+    startTransition(() => sendSet(s.id, { ...values, is_warmup: updated.is_warmup, done: s.done }));
   }
 
   function addSet(block: WorkoutSet[]) {
+    if (!navigator.onLine) return void toast("No signal. Add the set when you're back online.");
     const last = block.at(-1)!;
     startTransition(async () => {
-      const result = await addSets(
-        workout.id,
-        last.exercise_id,
-        last.position,
-        last.set_no + 1,
-        1,
-        last.rest_s,
+      const result = await online(() =>
+        addSets(workout.id, last.exercise_id, last.position, last.set_no + 1, 1, last.rest_s),
       );
+      if (!result) return;
       if (!result.ok) return void toast.error(result.error);
       const added = result.sets as WorkoutSet[];
       setSets((all) => [...all, ...added]);
@@ -223,25 +269,31 @@ export function Logger({
   }
 
   function removeFromBlock(ids: string[]) {
+    if (!navigator.onLine) return void toast("No signal. Remove it when you're back online.");
+    for (const id of ids) setWaiting(dropSet(workout.id, id));
     setSets((all) => all.filter((x) => !ids.includes(x.id)));
     startTransition(async () => {
-      const result = await removeSets(ids);
-      if (!result.ok) toast.error(result.error);
+      const result = await online(() => removeSets(ids));
+      if (result && !result.ok) toast.error(result.error);
     });
   }
 
   function addExercise(exercise: Exercise) {
+    if (!navigator.onLine) return void toast("No signal. Add it when you're back online.");
     if (!byId.has(exercise.id)) setKnown((k) => [...k, exercise]);
     const position = Math.max(-1, ...sets.map((s) => s.position)) + 1;
     startTransition(async () => {
-      const result = await addSets(
-        workout.id,
-        exercise.id,
-        position,
-        1,
-        exercise.kind === "strength" ? 3 : 1,
-        exercise.kind === "strength" ? 90 : 60,
+      const result = await online(() =>
+        addSets(
+          workout.id,
+          exercise.id,
+          position,
+          1,
+          exercise.kind === "strength" ? 3 : 1,
+          exercise.kind === "strength" ? 90 : 60,
+        ),
       );
+      if (!result) return;
       if (!result.ok) return void toast.error(result.error);
       const added = result.sets as WorkoutSet[];
       setSets((all) => [...all, ...added]);
@@ -287,8 +339,27 @@ export function Logger({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button onClick={() => setFinishing(true)}>Finish</Button>
+        <Button
+          onClick={async () => {
+            if (waiting && (await flush())) {
+              return void toast("Some sets are still on this phone. Finish once there's signal.");
+            }
+            setFinishing(true);
+          }}
+        >
+          Finish
+        </Button>
       </div>
+      {waiting > 0 && (
+        <p
+          role="status"
+          className="mb-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+        >
+          <CloudOff className="size-4 shrink-0" />
+          No signal. {waiting} set{waiting === 1 ? " is" : "s are"} saved on this phone and will be
+          sent when it&apos;s back.
+        </p>
+      )}
 
       <div className="flex flex-col gap-4">
         {blocks.map(({ position, sets: block }) => {

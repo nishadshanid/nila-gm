@@ -18,6 +18,7 @@ import { sum } from "@/lib/nutrition";
 import { formatMinutes, routineForDay, volume } from "@/lib/workout";
 import { isoWeekday, relativeDay, todayIST } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import { LiveSync } from "@/components/realtime/live-sync";
 
 export const metadata: Metadata = { title: "Partner" };
 
@@ -62,6 +63,7 @@ async function PartnerDay() {
 
   return (
     <div className="flex max-w-xl flex-col gap-6">
+      <LiveSync ownerId={partner.id} />
       <p className="text-muted-foreground -mt-4 flex items-center gap-1.5 text-sm">
         <PersonDot profile={partner} /> {partner.name}&apos;s day so far. You can look, not change.
       </p>

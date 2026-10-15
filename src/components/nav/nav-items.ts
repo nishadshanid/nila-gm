@@ -5,6 +5,7 @@ import {
   HeartHandshake,
   House,
   Ruler,
+  Search,
   Settings,
   Utensils,
   type LucideIcon,
@@ -24,6 +25,7 @@ export const SECONDARY_NAV: NavItem[] = [
   { href: "/habits", label: "Water & habits", icon: Flame },
   { href: "/partner", label: "Partner", icon: HeartHandshake },
   { href: "/stats", label: "Weekly stats", icon: ChartColumn },
+  { href: "/search", label: "Search", icon: Search },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
