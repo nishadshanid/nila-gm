@@ -21,6 +21,7 @@ export type Profile = {
   target_fat_g: number | null;
   target_water_ml: number;
   target_steps: number;
+  glass_ml: number;
   created_at: string;
   updated_at: string;
 };
@@ -145,3 +146,21 @@ export type MealEntry = Nutrients & {
   serving: string | null;
   created_at: string;
 };
+
+export type HabitKind = "check" | "number";
+
+export type Habit = {
+  id: string;
+  owner_id: string;
+  name: string;
+  emoji: string;
+  kind: HabitKind;
+  target: number | null;
+  unit: string | null;
+  active: boolean;
+  position: number;
+};
+
+export type HabitLog = { habit_id: string; date: string; value: number };
+
+export type WaterLog = { id: string; date: string; ml: number; created_at: string };

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
-import { GlassWater, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MacroRings, targetsOf } from "@/components/diet/macro-rings";
 import { getDayEntries } from "@/lib/diet";
@@ -9,9 +9,14 @@ import { sum } from "@/lib/nutrition";
 import { TodayWorkout } from "@/components/workouts/today-workout";
 import { getActiveWorkout, getHistory, getRoutines, getSchedule } from "@/lib/workouts";
 import { getHousehold } from "@/lib/household";
-import { ComingSoon } from "@/components/coming-soon";
+import { DayComplete } from "@/components/celebrate/day-complete";
+import { HabitChecklist } from "@/components/habits/habit-checklist";
+import { WaterCard } from "@/components/habits/water-card";
+import { getHabitDay } from "@/lib/habit-data";
+import { isDayComplete, isMet } from "@/lib/habits";
+import { routineForDay } from "@/lib/workout";
 import { PersonDot } from "@/components/person-dot";
-import { formatDay, todayIST, TZ } from "@/lib/dates";
+import { formatDay, isoWeekday, todayIST, TZ } from "@/lib/dates";
 
 function greeting(now: Date) {
   const hour = Number(
@@ -29,13 +34,23 @@ async function Today() {
   const { me, partner } = await getHousehold();
   const now = new Date();
   const today = todayIST(now);
-  const [routines, schedule, active, history, meals] = await Promise.all([
+  const [routines, schedule, active, history, meals, day] = await Promise.all([
     getRoutines(me.id),
     getSchedule(me.id),
     getActiveWorkout(me.id),
     getHistory(me.id, 3),
     getDayEntries(me.id, today),
+    getHabitDay(me.id, today, me.target_water_ml),
   ]);
+  const doneToday = history.filter((w) => w.date === today);
+  const restDay = !active && routineForDay(schedule, isoWeekday(today)) === null;
+  const complete = isDayComplete({
+    workoutDone: doneToday.length > 0,
+    restDay,
+    waterMl: day.water.ml,
+    waterTarget: me.target_water_ml,
+    habitsMet: day.habits.map((h) => isMet(h, day.values[h.id])),
+  });
   return (
     <>
       <div className="mb-6">
@@ -53,6 +68,14 @@ async function Today() {
           </p>
         )}
       </div>
+      {complete && (
+        <DayComplete
+          date={today}
+          detail={`${doneToday.length ? "Trained" : "Rested"}, drank your water${
+            day.habits.length ? ` and kept all ${day.habits.length} habits` : ""
+          }.`}
+        />
+      )}
       <section className="mb-6">
         <h2 className="mb-2 text-sm font-semibold">Workout</h2>
         <TodayWorkout
@@ -61,7 +84,7 @@ async function Today() {
           active={active}
           routines={routines}
           schedule={schedule}
-          doneToday={history.filter((w) => w.date === today)}
+          doneToday={doneToday}
         />
       </section>
       <section className="mb-6">
@@ -73,9 +96,29 @@ async function Today() {
         </div>
         <MacroRings totals={sum(meals)} targets={targetsOf(me)} />
       </section>
-      <ComingSoon icon={GlassWater} phase={3}>
-        Water and daily habits will show up here too.
-      </ComingSoon>
+      <section className="mb-6">
+        <WaterCard
+          date={today}
+          ml={day.water.ml}
+          target={me.target_water_ml}
+          glassMl={me.glass_ml}
+          streak={day.water.streak}
+        />
+      </section>
+      <section className="mb-6">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Habits</h2>
+          <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/habits" />}>
+            Edit
+          </Button>
+        </div>
+        <HabitChecklist
+          date={today}
+          habits={day.habits}
+          values={day.values}
+          streaks={day.streaks}
+        />
+      </section>
     </>
   );
 }

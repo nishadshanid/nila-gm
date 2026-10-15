@@ -19,31 +19,16 @@ function firstTime(key: string) {
 }
 
 /**
- * "All done for today": shown on Today when every chore and todo for the day
- * is ticked off. The first time it happens that day, confetti!
+ * "All done for today": shown on Today once training (or a rest day), water and
+ * every habit are done. The first time it happens that day, confetti!
  */
-export function DayComplete({
-  date,
-  view,
-  count,
-  points,
-  partnerName,
-}: {
-  date: string;
-  view: "mine" | "couple";
-  /** How many things were done. */
-  count: number;
-  /** Points you earned today, if known. */
-  points: number | null;
-  partnerName: string | null;
-}) {
+export function DayComplete({ date, detail }: { date: string; detail: string }) {
   useEffect(() => {
-    if (!firstTime(`nila-gym.celebrated.${date}.${view}`)) return;
+    if (!firstTime(`nila-gym.celebrated.${date}`)) return;
     tapFeedback();
     confetti();
-  }, [date, view]);
+  }, [date]);
 
-  const things = `${count} thing${count === 1 ? "" : "s"}`;
   return (
     <div
       role="status"
@@ -51,14 +36,8 @@ export function DayComplete({
     >
       <PartyPopper className="size-6 shrink-0" />
       <div>
-        <p className="font-semibold">
-          {view === "couple" ? "You two finished everything today! 🎉" : "All done for today! 🎉"}
-        </p>
-        <p className="text-sm opacity-80">
-          {view === "couple"
-            ? `${things} shared with ${partnerName ?? "your partner"}, all ticked off.`
-            : `${things} ticked off${points ? ` · +${points} points today` : ""}. Enjoy the rest of your day.`}
-        </p>
+        <p className="font-semibold">All done for today! 🎉</p>
+        <p className="text-sm opacity-80">{detail}</p>
       </div>
     </div>
   );
