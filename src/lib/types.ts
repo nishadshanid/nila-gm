@@ -153,7 +153,8 @@ export type Habit = {
   id: string;
   owner_id: string;
   name: string;
-  emoji: string;
+  /** A name from HABIT_ICONS. */
+  icon: string;
   kind: HabitKind;
   target: number | null;
   unit: string | null;

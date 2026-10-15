@@ -65,9 +65,9 @@ export function formatMl(ml: number): string {
 }
 
 export const STARTER_HABITS: Omit<Habit, "id" | "owner_id" | "active">[] = [
-  { name: "Steps", emoji: "🚶", kind: "number", target: 10000, unit: "steps", position: 0 },
-  { name: "Creatine", emoji: "💊", kind: "check", target: null, unit: null, position: 1 },
-  { name: "Sleep", emoji: "😴", kind: "number", target: 7, unit: "h", position: 2 },
-  { name: "Vitamins", emoji: "🍊", kind: "check", target: null, unit: null, position: 3 },
-  { name: "No sugar", emoji: "🚫", kind: "check", target: null, unit: null, position: 4 },
+  { name: "Steps", icon: "footprints", kind: "number", target: 10000, unit: "steps", position: 0 },
+  { name: "Creatine", icon: "pill", kind: "check", target: null, unit: null, position: 1 },
+  { name: "Sleep", icon: "moon", kind: "number", target: 7, unit: "h", position: 2 },
+  { name: "Vitamins", icon: "citrus", kind: "check", target: null, unit: null, position: 3 },
+  { name: "No sugar", icon: "ban", kind: "check", target: null, unit: null, position: 4 },
 ];

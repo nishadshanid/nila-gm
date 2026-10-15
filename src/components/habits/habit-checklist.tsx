@@ -2,7 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,6 +12,7 @@ import { formatProgress, isMet } from "@/lib/habits";
 import { tapFeedback } from "@/lib/haptics";
 import type { Habit } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { HabitIconView } from "@/components/habits/habit-icon";
 import { setHabitValue } from "@/app/(app)/habits/actions";
 
 /** Today's habits: tap to tick, or enter a number for steps and sleep. Streaks alongside. */
@@ -78,9 +79,10 @@ export function HabitChecklist({
                 onClick={() => (h.kind === "check" ? save(h, met ? null : 1) : setEntering(h))}
                 className="hover:bg-muted/50 flex w-full items-center gap-3 px-3 py-2.5 text-left"
               >
-                <span className="text-xl" aria-hidden>
-                  {h.emoji}
-                </span>
+                <HabitIconView
+                  name={h.icon}
+                  className={cn(met && "bg-green-600/15 text-green-700 dark:text-green-400")}
+                />
                 <span className="min-w-0 flex-1">
                   <span
                     className={cn("block truncate font-medium", met && "text-muted-foreground")}
@@ -94,8 +96,12 @@ export function HabitChecklist({
                   )}
                 </span>
                 {days > 1 && (
-                  <span className="text-muted-foreground text-sm tabular-nums" title="Streak">
-                    🔥 {days}
+                  <span
+                    className="text-muted-foreground inline-flex items-center gap-0.5 text-sm tabular-nums"
+                    title={`${days}-day streak`}
+                  >
+                    <Flame className="size-3.5 text-orange-500" />
+                    {days}
                   </span>
                 )}
                 <span
@@ -153,9 +159,7 @@ function NumberDialog({
     <Dialog open={habit !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>
-            {habit?.emoji} {habit?.name}
-          </DialogTitle>
+          <DialogTitle>{habit?.name}</DialogTitle>
         </DialogHeader>
         {habit && (
           <form onSubmit={submit} className="flex flex-col gap-4">

@@ -44,9 +44,7 @@ export function InstallApp() {
   if (env === null) return <div className="bg-muted h-10 animate-pulse rounded" />;
 
   if (env === "standalone" || installed) {
-    return (
-      <p className="text-muted-foreground text-sm">Nila Gym is installed on this device. 🎉</p>
-    );
+    return <p className="text-muted-foreground text-sm">Nila Gym is installed on this device.</p>;
   }
 
   if (prompt) {

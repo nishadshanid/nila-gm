@@ -34,7 +34,7 @@ export async function getHabitDay(
   const [habitRows, logRows, waterRows] = await Promise.all([
     supabase
       .from("habits")
-      .select("id, owner_id, name, emoji, kind, target, unit, active, position")
+      .select("id, owner_id, name, icon, kind, target, unit, active, position")
       .eq("owner_id", ownerId)
       .eq("active", true)
       .order("position")

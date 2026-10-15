@@ -185,7 +185,7 @@ export function AddFoodDialog({
                     ? "Nothing matches. Add it as a new food, or quick add the calories."
                     : tab === "recent"
                       ? "Foods you log show up here."
-                      : "Tap the ☆ on a food to keep it here."}
+                      : "Tap the star on a food to keep it here."}
                 </li>
               )}
             </ul>

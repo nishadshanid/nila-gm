@@ -50,7 +50,7 @@ export function RestTimer({
       navigator.vibrate?.([250, 120, 250]);
     } catch {}
     beep();
-    toast("Rest's over. Next set! 💪", { duration: 4000 });
+    toast("Rest's over. Next set!", { duration: 4000 });
   }, [endAt, left, onChange]);
 
   if (endAt === null || left <= 0) return null;

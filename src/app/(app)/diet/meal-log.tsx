@@ -63,7 +63,6 @@ export function MealLog({
           return (
             <section key={m.value} className="bg-card rounded-xl border">
               <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-                <span aria-hidden>{m.emoji}</span>
                 <h2 className="flex-1 font-semibold">{m.label}</h2>
                 {items.length > 0 && (
                   <span className="text-muted-foreground text-sm tabular-nums">

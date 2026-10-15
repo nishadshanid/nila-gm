@@ -21,7 +21,7 @@ import { Celebrate, DeleteWorkoutButton } from "./summary-actions";
 
 export const metadata: Metadata = { title: "Workout" };
 
-const FEELINGS = ["😫", "😕", "🙂", "😃", "🔥"];
+const FEELINGS = ["Tough", "Meh", "OK", "Good", "Great"];
 
 async function Summary({
   params,
@@ -71,7 +71,7 @@ async function Summary({
           {workout.feeling && (
             <span aria-label={`Felt ${workout.feeling} of 5`}>
               {" "}
-              · {FEELINGS[workout.feeling - 1]}
+              · Felt {FEELINGS[workout.feeling - 1].toLowerCase()}
             </span>
           )}
         </p>

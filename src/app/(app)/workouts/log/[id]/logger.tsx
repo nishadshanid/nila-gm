@@ -482,7 +482,7 @@ export function Logger({
   );
 }
 
-const FEELINGS = ["😫", "😕", "🙂", "😃", "🔥"];
+const FEELINGS = ["Tough", "Meh", "OK", "Good", "Great"];
 
 function FinishDialog({
   open,
@@ -538,20 +538,21 @@ function FinishDialog({
                 role="radiogroup"
                 aria-label="How did it feel?"
               >
-                {FEELINGS.map((emoji, i) => (
+                {FEELINGS.map((label, i) => (
                   <button
-                    key={emoji}
+                    key={label}
                     type="button"
                     role="radio"
                     aria-checked={feeling === i + 1}
-                    aria-label={`${i + 1} of 5`}
                     onClick={() => setFeeling(feeling === i + 1 ? null : i + 1)}
                     className={cn(
-                      "flex-1 rounded-lg border py-2 text-2xl transition-colors",
-                      feeling === i + 1 ? "border-green-600 bg-green-600/10" : "opacity-70",
+                      "min-w-0 flex-1 rounded-lg border py-2 text-sm transition-colors",
+                      feeling === i + 1
+                        ? "border-green-600 bg-green-600/10 font-medium"
+                        : "text-muted-foreground",
                     )}
                   >
-                    {emoji}
+                    {label}
                   </button>
                 ))}
               </div>

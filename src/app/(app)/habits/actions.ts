@@ -97,11 +97,11 @@ export async function setHabitValue(
 const habitSchema = z
   .object({
     name: z.string().trim().min(1, "Give it a name").max(40),
-    emoji: z
+    icon: z
       .string()
       .trim()
       .max(16)
-      .transform((v) => v || "✅"),
+      .transform((v) => v || "check"),
     kind: z.enum(["check", "number"]),
     target: z.number().positive("The target must be above 0").max(99999999).nullable(),
     unit: z

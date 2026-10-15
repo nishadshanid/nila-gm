@@ -22,7 +22,7 @@ export function notifyPartner(
       const message = build(actor?.name || "Your partner");
       for (const partner of data) {
         if (partner.id === actorId || !partner.push_notifications) continue;
-        await sendPush(db, partner.id, { title: "💪 Nila Gym", ...message });
+        await sendPush(db, partner.id, { title: "Nila Gym", ...message });
       }
     } catch (e) {
       console.error("[notify-partner]", (e as Error).message);

@@ -102,7 +102,7 @@ export async function sendTestNotification(): Promise<ProfileState> {
   try {
     // Your own devices only: RLS limits the client to your rows.
     const devices = await sendPush(supabase, user.id, {
-      title: "💪 Nila Gym",
+      title: "Nila Gym",
       body: "It works! Reminders and cheers will show up like this.",
       path: "/settings",
     });

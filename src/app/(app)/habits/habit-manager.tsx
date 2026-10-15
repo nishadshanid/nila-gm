@@ -10,25 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/segmented";
 import type { Habit, HabitKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { HABIT_ICONS } from "@/lib/habit-icons";
+import { HabitIconView } from "@/components/habits/habit-icon";
 import { addStarterHabits, deleteHabit, moveHabit, saveHabit } from "./actions";
-
-const EMOJIS = [
-  "✅",
-  "🚶",
-  "💊",
-  "😴",
-  "🍊",
-  "🚫",
-  "🧘",
-  "📖",
-  "🥗",
-  "🍎",
-  "🧴",
-  "☀️",
-  "🏃",
-  "🦷",
-  "📵",
-];
 
 /** Your habits with the last 7 days at a glance; add, edit, reorder or delete them. */
 export function HabitManager({
@@ -81,7 +65,7 @@ export function HabitManager({
           <ul className="divide-y rounded-xl border">
             {habits.map((h, i) => (
               <li key={h.id} className="flex items-center gap-2 px-3 py-2">
-                <span aria-hidden>{h.emoji}</span>
+                <HabitIconView name={h.icon} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{h.name}</span>
                   <span
@@ -151,7 +135,7 @@ export function HabitManager({
 
 function HabitForm({ habit, onDone }: { habit?: Habit; onDone: () => void }) {
   const [name, setName] = useState(habit?.name ?? "");
-  const [emoji, setEmoji] = useState(habit?.emoji ?? "✅");
+  const [icon, setIcon] = useState(habit?.icon ?? "check");
   const [kind, setKind] = useState<HabitKind>(habit?.kind ?? "check");
   const [target, setTarget] = useState(habit?.target ? String(habit.target) : "");
   const [unit, setUnit] = useState(habit?.unit ?? "");
@@ -165,7 +149,7 @@ function HabitForm({ habit, onDone }: { habit?: Habit; onDone: () => void }) {
       const r = await saveHabit(
         {
           name,
-          emoji,
+          icon,
           kind,
           target: kind === "number" && target.trim() ? Number(target) : null,
           unit: kind === "number" ? unit : null,
@@ -204,19 +188,19 @@ function HabitForm({ habit, onDone }: { habit?: Habit; onDone: () => void }) {
       <div className="flex flex-col gap-2">
         <Label>Icon</Label>
         <div className="flex flex-wrap gap-1">
-          {EMOJIS.map((e) => (
+          {Object.entries(HABIT_ICONS).map(([key, Icon]) => (
             <button
-              key={e}
+              key={key}
               type="button"
-              aria-label={e}
-              aria-pressed={emoji === e}
-              onClick={() => setEmoji(e)}
+              aria-label={key}
+              aria-pressed={icon === key}
+              onClick={() => setIcon(key)}
               className={cn(
-                "flex size-9 items-center justify-center rounded-lg border text-lg",
-                emoji === e ? "border-primary bg-muted" : "hover:bg-muted border-transparent",
+                "flex size-9 items-center justify-center rounded-lg border",
+                icon === key ? "border-primary bg-muted" : "hover:bg-muted border-transparent",
               )}
             >
-              {e}
+              <Icon className="size-5" />
             </button>
           ))}
         </div>

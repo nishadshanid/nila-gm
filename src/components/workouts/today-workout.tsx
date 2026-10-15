@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Dumbbell, Moon, Play } from "lucide-react";
+import { CircleCheck, Dumbbell, Moon, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StartWorkoutButton } from "@/components/workouts/start-workout-button";
 import { formatClock, routineForDay } from "@/lib/workout";
@@ -45,7 +45,7 @@ export function TodayWorkout({
     const last = doneToday[0];
     return (
       <div className="bg-card flex items-center gap-3 rounded-xl border p-4">
-        <span className="text-2xl">💪</span>
+        <CircleCheck className="size-6 shrink-0 text-green-600" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{last.name} done today</p>
           <Link href={`/workouts/${last.id}`} className="text-muted-foreground text-sm underline">

@@ -36,7 +36,7 @@ export function DayComplete({ date, detail }: { date: string; detail: string }) 
     >
       <PartyPopper className="size-6 shrink-0" />
       <div>
-        <p className="font-semibold">All done for today! 🎉</p>
+        <p className="font-semibold">All done for today</p>
         <p className="text-sm opacity-80">{detail}</p>
       </div>
     </div>

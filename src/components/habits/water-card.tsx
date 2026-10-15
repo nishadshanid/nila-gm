@@ -1,7 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { Settings2, Undo2 } from "lucide-react";
+import { Flame, Settings2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -42,7 +42,7 @@ export function WaterCard({
       change(glassMl);
       const r = await addWater(date, glassMl);
       if (!r.ok) toast.error(r.error);
-      else if (shown < target && shown + glassMl >= target) toast.success("Water target hit 💧");
+      else if (shown < target && shown + glassMl >= target) toast.success("Water target hit");
     });
   }
 
@@ -60,14 +60,17 @@ export function WaterCard({
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="font-semibold">
-            💧 Water
+            Water
             {streak > 1 && (
-              <span className="text-muted-foreground ml-2 text-sm font-normal">🔥 {streak}</span>
+              <span className="text-muted-foreground ml-2 inline-flex items-center gap-0.5 text-sm font-normal">
+                <Flame className="size-3.5 text-orange-500" />
+                {streak}
+              </span>
             )}
           </p>
           <p className="text-muted-foreground text-sm tabular-nums">
             {formatMl(shown)} of {formatMl(target)}
-            {done && " · done ✓"}
+            {done && " · done"}
           </p>
         </div>
         <Button

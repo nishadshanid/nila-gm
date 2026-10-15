@@ -1,10 +1,10 @@
 import type { Activity, Food, FoodUnit, Goal, Meal, MealEntry, Nutrients } from "@/lib/types";
 
-export const MEALS: { value: Meal; label: string; emoji: string }[] = [
-  { value: "breakfast", label: "Breakfast", emoji: "🍳" },
-  { value: "lunch", label: "Lunch", emoji: "🍛" },
-  { value: "snack", label: "Snacks", emoji: "🍌" },
-  { value: "dinner", label: "Dinner", emoji: "🌙" },
+export const MEALS: { value: Meal; label: string }[] = [
+  { value: "breakfast", label: "Breakfast" },
+  { value: "lunch", label: "Lunch" },
+  { value: "snack", label: "Snacks" },
+  { value: "dinner", label: "Dinner" },
 ];
 
 export const ACTIVITIES: { value: Activity; label: string; hint: string; factor: number }[] = [
