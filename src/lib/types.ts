@@ -22,6 +22,18 @@ export type Profile = {
   target_water_ml: number;
   target_steps: number;
   glass_ml: number;
+  remind_workout: boolean;
+  remind_workout_at: string;
+  remind_water: boolean;
+  water_from: string;
+  water_to: string;
+  water_every_h: number;
+  remind_meals: boolean;
+  remind_meals_at: string;
+  remind_weigh_in: boolean;
+  weigh_in_weekday: number;
+  weigh_in_at: string;
+  notify_partner_workouts: boolean;
   created_at: string;
   updated_at: string;
 };

@@ -59,9 +59,13 @@ async function Today() {
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">{formatDay(today, "EEEE d MMMM")}</p>
         {partner ? (
-          <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">
-            Training with <PersonDot profile={partner} /> {partner.name}
-          </p>
+          <Link
+            href="/partner"
+            className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm"
+          >
+            Training with <PersonDot profile={partner} />
+            <span className="underline">{partner.name}</span>
+          </Link>
         ) : (
           <p className="text-muted-foreground mt-1 text-sm">
             Your partner hasn&apos;t been added yet. Create their account in Supabase.

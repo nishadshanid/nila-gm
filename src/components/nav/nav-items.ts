@@ -1,4 +1,14 @@
-import { Dumbbell, Flame, House, Ruler, Settings, Utensils, type LucideIcon } from "lucide-react";
+import {
+  ChartColumn,
+  Dumbbell,
+  Flame,
+  HeartHandshake,
+  House,
+  Ruler,
+  Settings,
+  Utensils,
+  type LucideIcon,
+} from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -12,6 +22,8 @@ export const PRIMARY_NAV: NavItem[] = [
 
 export const SECONDARY_NAV: NavItem[] = [
   { href: "/habits", label: "Water & habits", icon: Flame },
+  { href: "/partner", label: "Partner", icon: HeartHandshake },
+  { href: "/stats", label: "Weekly stats", icon: ChartColumn },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

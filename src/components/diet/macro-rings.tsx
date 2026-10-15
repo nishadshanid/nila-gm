@@ -59,7 +59,16 @@ const MACROS = [
 ] as const;
 
 /** Calories as a big ring, protein / carbs / fat as small ones, against the day's targets. */
-export function MacroRings({ totals, targets }: { totals: Nutrients; targets: Targets | null }) {
+export function MacroRings({
+  totals,
+  targets,
+  readOnly = false,
+}: {
+  totals: Nutrients;
+  targets: Targets | null;
+  /** Someone else's day: no link to set targets. */
+  readOnly?: boolean;
+}) {
   const kcalLeft = targets ? targets.kcal - totals.kcal : null;
   return (
     <div className="bg-card flex items-center gap-4 rounded-xl border p-4">
@@ -96,7 +105,7 @@ export function MacroRings({ totals, targets }: { totals: Nutrients; targets: Ta
             </div>
           );
         })}
-        {!targets && (
+        {!targets && !readOnly && (
           <Link href="/diet/targets" className="text-xs underline">
             Set your daily targets
           </Link>

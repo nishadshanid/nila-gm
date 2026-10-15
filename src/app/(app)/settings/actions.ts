@@ -112,3 +112,38 @@ export async function sendTestNotification(): Promise<ProfileState> {
     return { error: (e as Error).message };
   }
 }
+
+const time = z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Pick a time");
+const remindersSchema = z
+  .object({
+    remind_workout: z.boolean(),
+    remind_workout_at: time,
+    remind_water: z.boolean(),
+    water_from: time,
+    water_to: time,
+    water_every_h: z.number().int().min(1).max(6),
+    remind_meals: z.boolean(),
+    remind_meals_at: time,
+    remind_weigh_in: z.boolean(),
+    weigh_in_weekday: z.number().int().min(1).max(7),
+    weigh_in_at: time,
+    notify_partner_workouts: z.boolean(),
+  })
+  .refine((r) => r.water_from.slice(0, 5) < r.water_to.slice(0, 5), {
+    message: "Water reminders must start before they end",
+  });
+export type RemindersInput = z.input<typeof remindersSchema>;
+
+export async function saveReminders(input: RemindersInput): Promise<ProfileState> {
+  const parsed = remindersSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid settings" };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You're signed out." };
+  const { error } = await supabase.from("profiles").update(parsed.data).eq("id", user.id);
+  if (error) return { error: error.message };
+  revalidatePath("/settings");
+  return { ok: true };
+}

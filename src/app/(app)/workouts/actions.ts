@@ -1,7 +1,10 @@
 "use server";
 
 import { refresh } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { notifyPartner } from "@/lib/notify-partner";
+import { findPRs, formatMinutes } from "@/lib/workout";
 import type { Exercise } from "@/lib/types";
 import {
   exerciseInputSchema,
@@ -215,17 +218,64 @@ export async function finishWorkout(
     .eq("workout_id", id)
     .eq("done", false);
   if (dropped.error) return { ok: false, error: dropped.error.message };
-  const { error } = await supabase
+  const { data: workout, error } = await supabase
     .from("workouts")
     .update({
       ended_at: new Date().toISOString(),
       notes: notes.trim().slice(0, 1000) || null,
       feeling: feeling && feeling >= 1 && feeling <= 5 ? feeling : null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("owner_id, name, started_at, ended_at")
+    .single();
   if (error) return { ok: false, error: error.message };
+  notifyPartner(
+    workout.owner_id,
+    (who, db) => describeFinish(db, id, workout, who),
+    "notify_partner_workouts",
+  );
   refresh();
   return { ok: true };
+}
+
+/** "Nishad finished Leg day: 52 min, 18 sets, 2 new records." */
+async function describeFinish(
+  db: SupabaseClient,
+  id: string,
+  w: { owner_id: string; name: string; started_at: string; ended_at: string },
+  who: string,
+) {
+  const sets = await db
+    .from("workout_sets")
+    .select("exercise_id, reps, weight_kg, duration_s, distance_m, done, is_warmup")
+    .eq("workout_id", id);
+  const current = (sets.data ?? []) as Parameters<typeof findPRs>[0];
+  const ids = [...new Set(current.map((s) => s.exercise_id))];
+  const earlier = ids.length
+    ? await db
+        .from("workout_sets")
+        .select(
+          "exercise_id, reps, weight_kg, duration_s, distance_m, done, is_warmup, workout:workouts!inner(owner_id, started_at, ended_at)",
+        )
+        .in("exercise_id", ids)
+        .eq("done", true)
+        .eq("workout.owner_id", w.owner_id)
+        .not("workout.ended_at", "is", null)
+        .lt("workout.started_at", w.started_at)
+        .limit(2000)
+    : { data: [] };
+  const prs = findPRs(current, (earlier.data ?? []) as Parameters<typeof findPRs>[1]).length;
+  const working = current.filter((s) => s.done && !s.is_warmup).length;
+  const parts = [
+    formatMinutes(new Date(w.ended_at).getTime() - new Date(w.started_at).getTime()),
+    `${working} set${working === 1 ? "" : "s"}`,
+    prs ? `${prs} new record${prs === 1 ? "" : "s"}` : null,
+  ].filter(Boolean);
+  return {
+    body: `${who} finished ${w.name}: ${parts.join(", ")}.`,
+    path: `/workouts/${id}`,
+    tag: `workout:${id}`,
+  };
 }
 
 /** Throws away a workout (in progress or from history). */
