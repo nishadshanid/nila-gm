@@ -22,8 +22,15 @@ function SidebarLink({ item, pathname }: { item: NavItem; pathname: string }) {
   );
 }
 
+/**
+ * Reads the address, so the layout wraps it in Suspense; the fallback draws the
+ * same nav without the highlight (pages with an id in the address need this).
+ */
 export function Sidebar() {
-  const pathname = usePathname();
+  return <SidebarView pathname={usePathname()} />;
+}
+
+export function SidebarView({ pathname }: { pathname: string }) {
   return (
     <nav className="flex flex-col gap-1">
       {PRIMARY_NAV.map((item) => (

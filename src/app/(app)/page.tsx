@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { Dumbbell } from "lucide-react";
+import { Utensils } from "lucide-react";
+import { TodayWorkout } from "@/components/workouts/today-workout";
+import { getActiveWorkout, getHistory, getRoutines, getSchedule } from "@/lib/workouts";
 import { getHousehold } from "@/lib/household";
 import { ComingSoon } from "@/components/coming-soon";
 import { PersonDot } from "@/components/person-dot";
@@ -21,15 +23,20 @@ async function Today() {
   await connection();
   const { me, partner } = await getHousehold();
   const now = new Date();
+  const today = todayIST(now);
+  const [routines, schedule, active, history] = await Promise.all([
+    getRoutines(me.id),
+    getSchedule(me.id),
+    getActiveWorkout(me.id),
+    getHistory(me.id, 3),
+  ]);
   return (
     <>
       <div className="mb-6">
         <h1 className="font-heading text-2xl font-semibold">
           {greeting(now)}, {me.name}
         </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {formatDay(todayIST(now), "EEEE d MMMM")}
-        </p>
+        <p className="text-muted-foreground mt-1 text-sm">{formatDay(today, "EEEE d MMMM")}</p>
         {partner ? (
           <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">
             Training with <PersonDot profile={partner} /> {partner.name}
@@ -40,8 +47,19 @@ async function Today() {
           </p>
         )}
       </div>
-      <ComingSoon icon={Dumbbell} phase={1}>
-        Today will show your workout, meals, water and habits for the day.
+      <section className="mb-6">
+        <h2 className="mb-2 text-sm font-semibold">Workout</h2>
+        <TodayWorkout
+          today={today}
+          now={now.getTime()}
+          active={active}
+          routines={routines}
+          schedule={schedule}
+          doneToday={history.filter((w) => w.date === today)}
+        />
+      </section>
+      <ComingSoon icon={Utensils} phase={2}>
+        Meals, water and habits for the day will show up here too.
       </ComingSoon>
     </>
   );

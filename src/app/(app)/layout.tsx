@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { Logo } from "@/components/logo";
-import { Sidebar } from "@/components/nav/sidebar";
-import { BottomNav } from "@/components/nav/bottom-nav";
+import { Sidebar, SidebarView } from "@/components/nav/sidebar";
+import { BottomNav, BottomNavView } from "@/components/nav/bottom-nav";
 import { UserChip } from "@/components/nav/user-chip";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
@@ -13,7 +13,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <Link href="/" className="px-3" aria-label="Nila Gym, today">
           <Logo className="h-8" />
         </Link>
-        <Sidebar />
+        <Suspense fallback={<SidebarView pathname="" />}>
+          <Sidebar />
+        </Suspense>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="bg-background/95 sticky top-0 z-30 flex h-14 items-center justify-between border-b px-4 backdrop-blur">
@@ -35,7 +37,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </header>
         <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 pb-24 md:pb-6">{children}</main>
       </div>
-      <BottomNav />
+      <Suspense fallback={<BottomNavView pathname="" />}>
+        <BottomNav />
+      </Suspense>
     </div>
   );
 }

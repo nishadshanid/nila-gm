@@ -11,8 +11,15 @@ import { PRIMARY_NAV, SECONDARY_NAV, isActive } from "./nav-items";
 const itemClass =
   "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-muted-foreground";
 
+/**
+ * Reads the address, so the layout wraps it in Suspense; the fallback draws the
+ * same nav without the highlight (pages with an id in the address need this).
+ */
 export function BottomNav() {
-  const pathname = usePathname();
+  return <BottomNavView pathname={usePathname()} />;
+}
+
+export function BottomNavView({ pathname }: { pathname: string }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreActive = SECONDARY_NAV.some((item) => isActive(pathname, item.href));
 
