@@ -2,13 +2,19 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
-import { ChevronLeft, ChevronRight, Salad, Target } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lightbulb, Salad, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { MacroRings, targetsOf } from "@/components/diet/macro-rings";
 import { getHousehold } from "@/lib/household";
 import { addDays, formatDay, relativeDay, todayIST, TZ } from "@/lib/dates";
-import { getDayEntries, getFavouriteIds, getFoods, getRecentFoodIds } from "@/lib/diet";
+import {
+  getDayEntries,
+  getFavouriteIds,
+  getFoods,
+  getMealIdeas,
+  getRecentFoodIds,
+} from "@/lib/diet";
 import { mealForHour, sum } from "@/lib/nutrition";
 import { MealLog } from "./meal-log";
 
@@ -25,14 +31,17 @@ async function Diary({ searchParams }: { searchParams: Promise<{ date?: string |
   const previousDate = addDays(date, -1);
   const nextDate = addDays(date, 1);
 
-  const { me } = await getHousehold();
-  const [entries, previousEntries, foods, recentIds, favouriteIds] = await Promise.all([
-    getDayEntries(me.id, date),
-    getDayEntries(me.id, previousDate),
-    getFoods(),
-    getRecentFoodIds(me.id),
-    getFavouriteIds(me.id),
-  ]);
+  const { me, partner } = await getHousehold();
+  const [entries, previousEntries, foods, recentIds, favouriteIds, ideas, partnerIdeas] =
+    await Promise.all([
+      getDayEntries(me.id, date),
+      getDayEntries(me.id, previousDate),
+      getFoods(),
+      getRecentFoodIds(me.id),
+      getFavouriteIds(me.id),
+      getMealIdeas(me.id),
+      partner ? getMealIdeas(partner.id) : [],
+    ]);
   const hour = Number(
     new Intl.DateTimeFormat("en-IN", { hour: "numeric", hourCycle: "h23", timeZone: TZ }).format(
       now,
@@ -95,6 +104,8 @@ async function Diary({ searchParams }: { searchParams: Promise<{ date?: string |
           recentIds={recentIds}
           favouriteIds={favouriteIds}
           defaultMeal={date === today ? mealForHour(hour) : "breakfast"}
+          ideas={ideas}
+          partner={partner ? { name: partner.name, ideas: partnerIdeas } : null}
         />
       </div>
 
@@ -114,6 +125,14 @@ async function Diary({ searchParams }: { searchParams: Promise<{ date?: string |
           render={<Link href="/diet/foods" />}
         >
           <Salad /> My foods
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link href="/diet/ideas" />}
+        >
+          <Lightbulb /> Meal ideas
         </Button>
       </div>
     </>

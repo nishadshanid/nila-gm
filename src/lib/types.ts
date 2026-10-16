@@ -210,3 +210,24 @@ export type ProgressPhoto = {
   width: number | null;
   height: number | null;
 };
+
+export type MealIdeaItem = {
+  id: string;
+  position: number;
+  food_id: string;
+  amount: number;
+  /** "If you're still hungry": unticked by default when logging. */
+  optional: boolean;
+};
+
+export type MealIdea = {
+  id: string;
+  owner_id: string;
+  position: number;
+  meal: Meal;
+  name: string;
+  /** When it tends to fit ("11 AM", "Pre-workout"). Only a hint. */
+  hint: string | null;
+  note: string | null;
+  items: MealIdeaItem[];
+};

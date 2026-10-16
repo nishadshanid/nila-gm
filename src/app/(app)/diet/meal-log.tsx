@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AddFoodDialog, EditEntryDialog } from "@/components/diet/add-food-dialog";
 import { MEALS, byMeal, formatAmount, sum } from "@/lib/nutrition";
-import type { Food, Meal, MealEntry } from "@/lib/types";
+import type { Food, Meal, MealEntry, MealIdea } from "@/lib/types";
 import { copyMeal } from "./actions";
 
 /** The day's meals with what's in them; tap to add, tap an item to change it. */
@@ -20,6 +20,8 @@ export function MealLog({
   recentIds,
   favouriteIds,
   defaultMeal,
+  ideas = [],
+  partner = null,
 }: {
   date: string;
   previousDate: string;
@@ -32,6 +34,8 @@ export function MealLog({
   favouriteIds: string[];
   /** The meal for the time of day. */
   defaultMeal: Meal;
+  ideas?: MealIdea[];
+  partner?: { name: string; ideas: MealIdea[] } | null;
 }) {
   const [adding, setAdding] = useState<Meal | null>(null);
   const [lastMeal, setLastMeal] = useState<Meal>(defaultMeal);
@@ -135,6 +139,8 @@ export function MealLog({
         foods={foods}
         recentIds={recentIds}
         favouriteIds={favouriteIds}
+        ideas={ideas}
+        partner={partner}
       />
       <EditEntryDialog entry={editing} onOpenChange={(open) => !open && setEditing(null)} />
     </>

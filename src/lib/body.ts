@@ -1,4 +1,5 @@
 import { addDays, daysBetween, type DateStr } from "@/lib/dates";
+import type { Goal } from "@/lib/types";
 
 export type WeightPoint = { date: DateStr; kg: number };
 export type TrendPoint = WeightPoint & { avg: number };
@@ -133,3 +134,41 @@ export const MEASUREMENTS = [
   { key: "hips_cm", label: "Hips" },
   { key: "thighs_cm", label: "Thighs" },
 ] as const;
+
+export type WeightAdvice = { tone: "keep" | "more" | "less"; text: string };
+
+/**
+ * The plan's adjustment rule, from the 7-day trend: gaining, add food if the
+ * weight has been flat for 2 weeks; losing, eat a little less (or walk more) if
+ * nothing changed in 3 weeks. Null until there's a long enough history.
+ */
+export function weightAdvice(trend: TrendPoint[], goal: Goal): WeightAdvice | null {
+  if (goal === "maintain" || trend.length < 4) return null;
+  const last = trend[trend.length - 1];
+  const weeks = goal === "bulk" ? 2 : 3;
+  const back = [...trend].reverse().find((p) => daysBetween(p.date, last.date) >= weeks * 7);
+  if (!back) return null;
+  const perWeek = (last.avg - back.avg) / (daysBetween(back.date, last.date) / 7);
+  if (goal === "bulk") {
+    if (perWeek < 0.1) {
+      return {
+        tone: "more",
+        text: "Weight's been flat for 2 weeks: add about 150–250 kcal a day, like a banana and 250 ml milk.",
+      };
+    }
+    if (perWeek > 0.75) {
+      return { tone: "less", text: "Gaining fast: trim a little, like a smaller portion of rice." };
+    }
+    return { tone: "keep", text: `Gaining about ${round1(perWeek)} kg a week. Keep going.` };
+  }
+  if (perWeek > -0.1) {
+    return {
+      tone: "less",
+      text: "No change in 3 weeks: eat about 100–150 kcal a day less, or walk a bit more.",
+    };
+  }
+  if (perWeek < -1) {
+    return { tone: "more", text: "Losing fast: eat a little more to keep your muscle." };
+  }
+  return { tone: "keep", text: `Losing about ${round1(-perWeek)} kg a week. Keep going.` };
+}

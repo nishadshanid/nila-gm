@@ -6,7 +6,8 @@ import { Camera, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { getHousehold } from "@/lib/household";
 import { getBodyMetrics } from "@/lib/body-data";
-import { bmi, bmiLabel, formatChange, movingAverage, summarize } from "@/lib/body";
+import { bmi, bmiLabel, formatChange, movingAverage, summarize, weightAdvice } from "@/lib/body";
+import { WeightAdviceCard } from "@/components/weight-advice";
 import { relativeDay, todayIST } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 import { BodyHistory, WeighIn } from "./body-log";
@@ -42,6 +43,7 @@ async function Body() {
     metrics.flatMap((m) => (m.weight_kg != null ? [{ date: m.date, kg: m.weight_kg }] : [])),
   );
   const summary = summarize(trend);
+  const advice = weightAdvice(trend, me.goal);
   const todays = metrics.find((m) => m.date === today) ?? null;
   const index = summary && me.height_cm ? bmi(summary.current, Number(me.height_cm)) : null;
 
@@ -74,6 +76,7 @@ async function Body() {
         </div>
       )}
 
+      {advice && <WeightAdviceCard advice={advice} />}
       {trend.length > 0 && <WeightChart trend={trend} today={today} />}
 
       <Link

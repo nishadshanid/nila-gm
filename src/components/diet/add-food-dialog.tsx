@@ -18,18 +18,21 @@ import {
   nutrientsFor,
   perLabel,
 } from "@/lib/nutrition";
-import type { Food, FoodUnit, Meal, MealEntry, Nutrients } from "@/lib/types";
+import type { Food, FoodUnit, Meal, MealEntry, MealIdea, Nutrients } from "@/lib/types";
+import { ideaTotals, ideasForMeal, partnerPortion } from "@/lib/meal-ideas";
+import { IdeaReview } from "@/components/diet/idea-review";
 import { cn } from "@/lib/utils";
 import {
   addEntry,
   deleteEntry,
+  logIdea,
   quickAdd,
   setFavourite,
   updateEntry,
 } from "@/app/(app)/diet/actions";
 
-type View = "search" | "amount" | "quick" | "new";
-type Tab = "recent" | "favourites" | "all";
+type View = "search" | "amount" | "quick" | "new" | "idea";
+type Tab = "plan" | "recent" | "favourites" | "all";
 
 const MAX_SHOWN = 60;
 
@@ -42,6 +45,8 @@ export function AddFoodDialog({
   foods: initialFoods,
   recentIds,
   favouriteIds,
+  ideas = [],
+  partner = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,11 +55,17 @@ export function AddFoodDialog({
   foods: Food[];
   recentIds: string[];
   favouriteIds: string[];
+  /** Your meal ideas (saved combos, e.g. from a diet plan). */
+  ideas?: MealIdea[];
+  /** Your partner's ideas, to show their portion when you cook the same thing. */
+  partner?: { name: string; ideas: MealIdea[] } | null;
 }) {
   const [view, setView] = useState<View>("search");
   const [meal, setMeal] = useState(initialMeal);
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<Tab>(recentIds.length ? "recent" : "all");
+  const defaultTab: Tab = ideas.length ? "plan" : recentIds.length ? "recent" : "all";
+  const [tab, setTab] = useState<Tab>(defaultTab);
+  const [idea, setIdea] = useState<MealIdea | null>(null);
   const [foods, setFoods] = useState(initialFoods);
   const [favourites, setFavourites] = useState(() => new Set(favouriteIds));
   const [food, setFood] = useState<Food | null>(null);
@@ -68,8 +79,10 @@ export function AddFoodDialog({
       setMeal(initialMeal);
       setQuery("");
       setFoods(initialFoods);
+      setTab(defaultTab);
     }
   }
+  const orderedIdeas = useMemo(() => ideasForMeal(ideas, meal), [ideas, meal]);
 
   const byId = useMemo(() => new Map(foods.map((f) => [f.id, f])), [foods]);
   const shown = useMemo(() => {
@@ -118,11 +131,18 @@ export function AddFoodDialog({
         ? "New food"
         : view === "amount" && food
           ? food.name
-          : `Add to ${MEALS.find((m) => m.value === meal)!.label.toLowerCase()}`;
+          : view === "idea" && idea
+            ? idea.name
+            : `Add to ${MEALS.find((m) => m.value === meal)!.label.toLowerCase()}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[88dvh] flex-col sm:max-w-md">
+      <DialogContent
+        className={cn(
+          "flex max-h-[88dvh] flex-col sm:max-w-md",
+          view === "idea" && "overflow-y-auto",
+        )}
+      >
         <DialogHeader>
           <DialogTitle className="pr-6">{title}</DialogTitle>
         </DialogHeader>
@@ -145,50 +165,87 @@ export function AddFoodDialog({
                 onChange={setTab}
                 aria-label="Show"
                 options={[
+                  ...(ideas.length ? [{ value: "plan" as const, label: "Plan" }] : []),
                   { value: "recent", label: "Recent" },
-                  { value: "favourites", label: "Favourites" },
+                  { value: "favourites", label: "Starred" },
                   { value: "all", label: "All" },
                 ]}
               />
             )}
-            <ul className="-mx-1 min-h-40 flex-1 overflow-y-auto">
-              {shown.map((f) => (
-                <li key={f.id} className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => choose(f)}
-                    className="hover:bg-muted flex min-w-0 flex-1 flex-col items-start rounded-md px-2 py-2 text-left"
-                  >
-                    <span className="w-full truncate font-medium">{f.name}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {Math.round(f.kcal)} kcal · {f.protein_g} g protein · {perLabel(f)}
-                      {f.owner_id && " · custom"}
-                    </span>
-                  </button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={
-                      favourites.has(f.id) ? "Remove from favourites" : "Add to favourites"
-                    }
-                    aria-pressed={favourites.has(f.id)}
-                    onClick={() => toggleFavourite(f)}
-                  >
-                    <Star className={cn(favourites.has(f.id) && "fill-amber-400 text-amber-500")} />
-                  </Button>
-                </li>
-              ))}
-              {shown.length === 0 && (
-                <li className="text-muted-foreground px-2 py-6 text-center text-sm">
-                  {query.trim()
-                    ? "Nothing matches. Add it as a new food, or quick add the calories."
-                    : tab === "recent"
-                      ? "Foods you log show up here."
-                      : "Tap the star on a food to keep it here."}
-                </li>
-              )}
-            </ul>
+            {tab === "plan" && !query.trim() ? (
+              <ul className="-mx-1 min-h-40 flex-1 overflow-y-auto">
+                {orderedIdeas.map((x, i) => {
+                  const t = ideaTotals(x.items, byId);
+                  const header =
+                    (i === 0 || orderedIdeas[i - 1].meal !== x.meal) &&
+                    MEALS.find((m) => m.value === x.meal)!.label;
+                  return (
+                    <li key={x.id}>
+                      {header && (
+                        <p className="text-muted-foreground px-2 pt-2 pb-1 text-xs font-medium uppercase">
+                          {header}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIdea(x);
+                          setView("idea");
+                        }}
+                        className="hover:bg-muted flex w-full flex-col items-start rounded-md px-2 py-2 text-left"
+                      >
+                        <span className="w-full truncate font-medium">{x.name}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {t.kcal} kcal · {Math.round(t.protein_g)} g protein
+                          {x.hint && ` · ${x.hint}`}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <ul className="-mx-1 min-h-40 flex-1 overflow-y-auto">
+                {shown.map((f) => (
+                  <li key={f.id} className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => choose(f)}
+                      className="hover:bg-muted flex min-w-0 flex-1 flex-col items-start rounded-md px-2 py-2 text-left"
+                    >
+                      <span className="w-full truncate font-medium">{f.name}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {Math.round(f.kcal)} kcal · {f.protein_g} g protein · {perLabel(f)}
+                        {f.owner_id && " · custom"}
+                      </span>
+                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={
+                        favourites.has(f.id) ? "Remove from favourites" : "Add to favourites"
+                      }
+                      aria-pressed={favourites.has(f.id)}
+                      onClick={() => toggleFavourite(f)}
+                    >
+                      <Star
+                        className={cn(favourites.has(f.id) && "fill-amber-400 text-amber-500")}
+                      />
+                    </Button>
+                  </li>
+                ))}
+                {shown.length === 0 && (
+                  <li className="text-muted-foreground px-2 py-6 text-center text-sm">
+                    {query.trim()
+                      ? "Nothing matches. Add it as a new food, or quick add the calories."
+                      : tab === "recent"
+                        ? "Foods you log show up here."
+                        : "Tap the star on a food to keep it here."}
+                  </li>
+                )}
+              </ul>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Button type="button" variant="outline" onClick={() => setView("quick")}>
                 <Zap /> Quick add
@@ -216,6 +273,25 @@ export function AddFoodDialog({
               const r = await addEntry({ date, meal, food_id: food.id, amount });
               if (!r.ok) return r.error;
               added(`Added ${formatAmount(amount, food.unit, food.serving)} of ${food.name}`);
+            }}
+          />
+        )}
+
+        {view === "idea" && idea && (
+          <IdeaReview
+            key={idea.id}
+            idea={idea}
+            foods={byId}
+            meal={meal}
+            onMealChange={setMeal}
+            partner={
+              partner ? { name: partner.name, items: partnerPortion(idea, partner.ideas) } : null
+            }
+            onBack={() => setView("search")}
+            onSubmit={async (items) => {
+              const r = await logIdea(date, meal, items);
+              if (!r.ok) return r.error;
+              added(`Added ${idea.name.toLowerCase()} (${r.count} foods)`);
             }}
           />
         )}

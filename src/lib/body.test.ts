@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { bmi, bmiLabel, buildChart, formatChange, movingAverage, summarize } from "./body";
+import { addDays } from "./dates";
+import {
+  bmi,
+  bmiLabel,
+  buildChart,
+  formatChange,
+  movingAverage,
+  summarize,
+  weightAdvice,
+} from "./body";
 
 const points = [
   { date: "2026-10-01", kg: 80 },
@@ -76,4 +85,32 @@ describe("buildChart", () => {
     expect(c.ticks.length).toBeGreaterThan(1);
   });
   it("is empty without data", () => expect(buildChart([], 300, 100).dots).toEqual([]));
+});
+
+describe("weightAdvice", () => {
+  const series = (start: number, perWeek: number, weeks: number) =>
+    movingAverage(
+      Array.from({ length: weeks * 7 + 1 }, (_, i) => ({
+        date: addDays("2026-09-01", i),
+        kg: Math.round((start + (perWeek * i) / 7) * 100) / 100,
+      })),
+    );
+  it("tells a gainer to eat more when flat for 2 weeks", () => {
+    expect(weightAdvice(series(60, 0, 3), "bulk")?.tone).toBe("more");
+  });
+  it("is happy with a steady gain", () => {
+    expect(weightAdvice(series(60, 0.3, 3), "bulk")).toEqual({
+      tone: "keep",
+      text: "Gaining about 0.3 kg a week. Keep going.",
+    });
+  });
+  it("tells a loser to trim when nothing changed in 3 weeks, and to slow down when fast", () => {
+    expect(weightAdvice(series(64, 0, 4), "cut")?.tone).toBe("less");
+    expect(weightAdvice(series(64, -1.5, 4), "cut")?.tone).toBe("more");
+    expect(weightAdvice(series(64, -0.4, 4), "cut")?.tone).toBe("keep");
+  });
+  it("waits for enough history", () => {
+    expect(weightAdvice(series(64, 0, 1), "cut")).toBeNull();
+    expect(weightAdvice(series(60, 0, 3), "maintain")).toBeNull();
+  });
 });

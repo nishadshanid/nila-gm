@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { recentFoodIds } from "@/lib/nutrition";
-import type { Food, MealEntry } from "@/lib/types";
+import type { Food, MealEntry, MealIdea } from "@/lib/types";
 
 function check<T>(result: { data: unknown; error: { message: string } | null }, what: string): T {
   if (result.error) throw new Error(`Could not load ${what}: ${result.error.message}`);
@@ -76,4 +76,25 @@ export async function getFavouriteIds(ownerId: string): Promise<string[]> {
     "favourites",
   );
   return rows.map((r) => r.food_id);
+}
+
+/** Someone's meal ideas, by meal and position, with their foods in order. */
+export async function getMealIdeas(ownerId: string): Promise<MealIdea[]> {
+  const supabase = await createClient();
+  const rows = check<MealIdea[]>(
+    await supabase
+      .from("meal_ideas")
+      .select(
+        "id, owner_id, position, meal, name, hint, note, items:meal_idea_items(id, position, food_id, amount, optional)",
+      )
+      .eq("owner_id", ownerId)
+      .order("position"),
+    "meal ideas",
+  );
+  return rows.map((idea) => ({
+    ...idea,
+    items: idea.items
+      .map((i) => ({ ...i, amount: Number(i.amount) }))
+      .sort((a, b) => a.position - b.position),
+  }));
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { FOOD_COLUMNS } from "@/lib/diet";
 import { nutrientsFor } from "@/lib/nutrition";
@@ -189,4 +190,146 @@ export async function saveTargets(input: TargetsInput): Promise<ActionResult> {
   if (error) return { ok: false, error: error.message };
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+const MEALS_ENUM = z.enum(["breakfast", "lunch", "snack", "dinner"]);
+const ideaItemsSchema = z
+  .array(
+    z.object({
+      food_id: z.uuid(),
+      amount: z.number().positive().max(5000),
+      optional: z.boolean().optional().default(false),
+    }),
+  )
+  .min(1, "Add at least one food")
+  .max(20);
+
+/** Logs an idea's foods (the ones you kept, at your amounts) in one go. */
+export async function logIdea(
+  date: string,
+  meal: Meal,
+  items: { food_id: string; amount: number }[],
+): Promise<Result<{ count: number }>> {
+  const parsed = z
+    .object({ date: z.iso.date(), meal: MEALS_ENUM, items: ideaItemsSchema })
+    .safeParse({ date, meal, items });
+  if (!parsed.success) return invalid(parsed.error, "meal");
+  const { supabase, user } = await me();
+  if (!user) return signedOut;
+  const ids = [...new Set(parsed.data.items.map((i) => i.food_id))];
+  const found = await supabase.from("foods").select(FOOD_COLUMNS).in("id", ids);
+  if (found.error) return { ok: false, error: found.error.message };
+  const byId = new Map((found.data as Food[]).map((f) => [f.id, f]));
+  const rows = parsed.data.items.flatMap(({ food_id, amount }) => {
+    const food = byId.get(food_id);
+    if (!food) return [];
+    const rounded = Math.round(amount * 100) / 100;
+    return [
+      {
+        date: parsed.data.date,
+        meal: parsed.data.meal,
+        food_id,
+        name: food.name,
+        amount: rounded,
+        unit: food.unit,
+        serving: food.serving,
+        ...nutrientsFor(food, rounded),
+      },
+    ];
+  });
+  const { error } = await supabase.from("meal_entries").insert(rows);
+  if (error) return { ok: false, error: error.message };
+  refresh();
+  return { ok: true, count: rows.length };
+}
+
+const ideaSchema = z.object({
+  meal: MEALS_ENUM,
+  name: z.string().trim().min(1, "Give it a name").max(60),
+  hint: z
+    .string()
+    .trim()
+    .max(30)
+    .nullable()
+    .transform((v) => v || null),
+  note: z
+    .string()
+    .trim()
+    .max(300)
+    .nullable()
+    .transform((v) => v || null),
+  items: ideaItemsSchema,
+});
+export type IdeaInput = z.input<typeof ideaSchema>;
+
+/** Creates a meal idea, or replaces one (and its foods) when `id` is given. */
+export async function saveIdea(input: IdeaInput, id?: string): Promise<Result<{ id: string }>> {
+  const parsed = ideaSchema.safeParse(input);
+  if (!parsed.success) return invalid(parsed.error, "idea");
+  const { supabase, user } = await me();
+  if (!user) return signedOut;
+  const { items, ...idea } = parsed.data;
+  let ideaId = id;
+  if (id) {
+    const { error } = await supabase.from("meal_ideas").update(idea).eq("id", id);
+    if (error) return { ok: false, error: error.message };
+    const removed = await supabase.from("meal_idea_items").delete().eq("idea_id", id);
+    if (removed.error) return { ok: false, error: removed.error.message };
+  } else {
+    const last = await supabase
+      .from("meal_ideas")
+      .select("position")
+      .eq("owner_id", user.id)
+      .eq("meal", idea.meal)
+      .order("position", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const created = await supabase
+      .from("meal_ideas")
+      .insert({ ...idea, position: (last.data?.position ?? -1) + 1 })
+      .select("id")
+      .single();
+    if (created.error) return { ok: false, error: created.error.message };
+    ideaId = created.data.id as string;
+  }
+  const added = await supabase
+    .from("meal_idea_items")
+    .insert(items.map((it, position) => ({ ...it, idea_id: ideaId, position })));
+  if (added.error) return { ok: false, error: added.error.message };
+  refresh();
+  return { ok: true, id: ideaId! };
+}
+
+export async function deleteIdea(id: string): Promise<ActionResult> {
+  const { supabase } = await me();
+  const { error } = await supabase.from("meal_ideas").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  refresh();
+  return { ok: true };
+}
+
+/** Turns what you logged for a meal on a day into an idea. */
+export async function saveMealAsIdea(
+  date: string,
+  meal: Meal,
+  name: string,
+): Promise<Result<{ id: string }>> {
+  const { supabase, user } = await me();
+  if (!user) return signedOut;
+  const found = await supabase
+    .from("meal_entries")
+    .select("food_id, amount")
+    .eq("owner_id", user.id)
+    .eq("date", date)
+    .eq("meal", meal)
+    .not("food_id", "is", null)
+    .order("created_at");
+  if (found.error) return { ok: false, error: found.error.message };
+  return saveIdea({
+    meal,
+    name,
+    hint: null,
+    note: null,
+    items: found.data.map((e) => ({ food_id: e.food_id as string, amount: Number(e.amount) })),
+  });
 }
