@@ -12,6 +12,7 @@ type ProfileRow = ReminderSettings & {
   push_notifications: boolean;
   target_water_ml: number;
   weekly_goal: number | null;
+  next_routine_id: string | null;
 };
 
 /** India time as minutes after midnight. */
@@ -102,7 +103,11 @@ export async function runTick(db: SupabaseClient, now = new Date()): Promise<Tic
     if (p.weekly_goal) {
       const mine = recent.filter((w) => w.owner_id === p.id);
       const own = routines.filter((r) => r.owner_id === p.id);
-      const next = nextRoutine(own, mine.find((w) => w.routine_id)?.routine_id ?? null);
+      const next = nextRoutine(
+        own,
+        mine.find((w) => w.routine_id)?.routine_id ?? null,
+        p.next_routine_id,
+      );
       const week = weekProgress(
         mine.filter((w) => w.date >= monday).map((w) => w.date),
         p.weekly_goal,

@@ -185,15 +185,18 @@ export function describePR(pr: PR): string {
 }
 
 /**
- * In a flexible programme (N a week, in order): the routine after the one you did
- * last, wrapping from the last day to the first. Day 1 if you haven't done any.
- * `routines` must be in programme order.
+ * In a flexible programme the routines go round in a cycle: next is the one you
+ * picked, or else the one after the routine you did last (the first in the list
+ * if you haven't done any). `routines` must be in cycle order.
  */
 export function nextRoutine<T extends { id: string }>(
   routines: T[],
   lastRoutineId: string | null,
+  picked: string | null = null,
 ): T | null {
   if (routines.length === 0) return null;
+  const chosen = picked && routines.find((r) => r.id === picked);
+  if (chosen) return chosen;
   const i = routines.findIndex((r) => r.id === lastRoutineId);
   return routines[i < 0 ? 0 : (i + 1) % routines.length];
 }

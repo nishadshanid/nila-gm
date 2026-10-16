@@ -90,6 +90,26 @@ export async function saveSchedule(days: (string | null)[]): Promise<ActionResul
   return { ok: true };
 }
 
+/** "Did legs yesterday": sets which routine comes next in the cycle. */
+export async function setNextRoutine(routineId: string): Promise<ActionResult> {
+  const { supabase, user } = await me();
+  if (!user) return signedOut;
+  const owned = await supabase
+    .from("routines")
+    .select("id")
+    .eq("id", routineId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  if (!owned.data) return { ok: false, error: "That routine isn't yours." };
+  const { error } = await supabase
+    .from("profiles")
+    .update({ next_routine_id: routineId })
+    .eq("id", user.id);
+  if (error) return { ok: false, error: error.message };
+  refresh();
+  return { ok: true };
+}
+
 /** A flexible programme: this many workouts a week, in order, on any days. Clears fixed days. */
 export async function saveWeeklyGoal(goal: number): Promise<ActionResult> {
   if (!Number.isInteger(goal) || goal < 1 || goal > 7) return { ok: false, error: "Pick 1–7" };
@@ -328,6 +348,8 @@ export async function finishWorkout(
     .select("owner_id, name, started_at, ended_at")
     .single();
   if (error) return { ok: false, error: error.message };
+  // The cycle carries on from what you just did.
+  await supabase.from("profiles").update({ next_routine_id: null }).eq("id", workout.owner_id);
   notifyPartner(
     workout.owner_id,
     (who, db) => describeFinish(db, id, workout, who),

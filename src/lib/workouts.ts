@@ -151,15 +151,15 @@ export type Programme = {
   /** Set when the person trains N times a week in order, on any days. */
   flexible: {
     next: RoutineWithExercises | null;
-    /** 1-based position of `next` in the programme ("Day 2"). */
-    day: number;
+    /** Where `next` sits in the cycle (0-based), to see if you two are on the same area. */
+    slot: number;
     week: WeekProgress;
   } | null;
 };
 
 /** Everything about someone's plan for today: routines, what's next, and the week so far. */
 export async function getProgramme(
-  person: Pick<Profile, "id" | "weekly_goal">,
+  person: Pick<Profile, "id" | "weekly_goal" | "next_routine_id">,
   today: string,
 ): Promise<Programme> {
   const [routines, schedule, active, history] = await Promise.all([
@@ -170,10 +170,14 @@ export async function getProgramme(
   ]);
   let flexible: Programme["flexible"] = null;
   if (person.weekly_goal) {
-    const next = nextRoutine(routines, history.find((w) => w.routine_id)?.routine_id ?? null);
+    const next = nextRoutine(
+      routines,
+      history.find((w) => w.routine_id)?.routine_id ?? null,
+      person.next_routine_id,
+    );
     flexible = {
       next,
-      day: next ? routines.indexOf(next) + 1 : 0,
+      slot: next ? routines.indexOf(next) : -1,
       week: weekProgress(
         history.map((w) => w.date),
         person.weekly_goal,
@@ -184,12 +188,12 @@ export async function getProgramme(
   return { routines, schedule, active, history, flexible };
 }
 
-/** "Aabi's next: Day 2 · Upper Body", for the workout card. */
+/** "Aabi's next: Upper Body", for the workout card. */
 export function partnerNext(
   partner: Pick<Profile, "name"> | null,
   programme: Programme | null,
-): { name: string; routine: string; day: number } | null {
+): { name: string; routine: string; slot: number } | null {
   const next = programme?.flexible?.next;
   if (!partner || !next || programme.active) return null;
-  return { name: partner.name, routine: next.name, day: programme.flexible!.day };
+  return { name: partner.name, routine: next.name, slot: programme.flexible!.slot };
 }

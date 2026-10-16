@@ -91,14 +91,14 @@ export function WeekPlan({
                     : "text-muted-foreground border-dashed",
                 )}
               >
-                {i < week.done ? <Check className="size-4" strokeWidth={3} /> : i + 1}
+                {i < week.done && <Check className="size-4" strokeWidth={3} />}
               </li>
             ))}
           </ol>
           <p className="text-muted-foreground mt-2 text-xs">
             {week.left === 0
               ? "All done. Rest up, or add a bonus session."
-              : `${week.left} to go, ${week.daysLeft} day${week.daysLeft === 1 ? "" : "s"} left. Any days you like, in order.`}
+              : `${week.left} to go, ${week.daysLeft} day${week.daysLeft === 1 ? "" : "s"} left. Any days you like.`}
           </p>
         </div>
       ) : (
@@ -153,8 +153,8 @@ export function WeekPlan({
                 </NativeSelect>
               </label>
               <p className="text-muted-foreground">
-                Go on any days you like. Your routines come up in order (Day 1, Day 2, …) and start
-                again after the last one.
+                Go on any days you like. Your routines go round in a cycle: after each one, the next
+                comes up. Change it any time from the workout card.
               </p>
             </div>
           ) : (

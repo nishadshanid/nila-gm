@@ -173,6 +173,11 @@ describe("flexible programme", () => {
     expect(nextRoutine([], null)).toBeNull();
   });
 
+  it("uses the routine you picked as next", () => {
+    expect(nextRoutine(days, "d1", "d3")?.id).toBe("d3");
+    expect(nextRoutine(days, "d1", "deleted")?.id).toBe("d2");
+  });
+
   it("counts the week and whether today can be a rest day", () => {
     // Thursday 15 Oct 2026: Thu–Sun is 4 days left.
     const p = weekProgress(["2026-10-12", "2026-10-13", "2026-10-09"], 5, "2026-10-15");

@@ -36,6 +36,8 @@ export type Profile = {
   notify_partner_workouts: boolean;
   /** Workouts a week, done in order on any days. Null = fixed weekdays. */
   weekly_goal: number | null;
+  /** What comes next in the cycle, if the person picked it; cleared after a workout. */
+  next_routine_id: string | null;
   created_at: string;
   updated_at: string;
 };

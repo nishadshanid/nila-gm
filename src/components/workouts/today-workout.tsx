@@ -2,12 +2,13 @@ import Link from "next/link";
 import { CircleCheck, Dumbbell, Moon, Play, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StartWorkoutButton } from "@/components/workouts/start-workout-button";
+import { ChangeNext } from "@/components/workouts/change-next";
 import { formatClock, routineForDay } from "@/lib/workout";
 import { isoWeekday } from "@/lib/dates";
 import type { RoutineWithExercises, ScheduleDay, Workout } from "@/lib/types";
 import type { Programme } from "@/lib/workouts";
 
-export type PartnerNext = { name: string; routine: string; day: number } | null;
+export type PartnerNext = { name: string; routine: string; slot: number } | null;
 
 /**
  * Today's workout: Resume when one is in progress, "done today", or what's up
@@ -49,10 +50,11 @@ export function TodayWorkout({
         <p className="text-muted-foreground flex items-center gap-2 border-t px-4 py-2 text-sm">
           <Users className="size-4 shrink-0" />
           <span className="min-w-0">
-            {!active && !doneToday.length && partner.day === flexible.day ? (
-              <span className="text-foreground font-medium">
-                You&apos;re both on Day {partner.day}: train together
-              </span>
+            {!active && !doneToday.length && partner.slot === flexible.slot ? (
+              <>
+                {partner.name}&apos;s next is {partner.routine}, the same area.{" "}
+                <span className="text-foreground font-medium">Train together.</span>
+              </>
             ) : (
               <>
                 {partner.name}&apos;s next: {partner.routine}
@@ -132,7 +134,10 @@ function Main({
             {week && week.left === 0 && ", goal reached"}
           </p>
           <p className="font-semibold">{next.name}</p>
-          <p className="text-muted-foreground text-sm">{next.routine_exercises.length} exercises</p>
+          <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-sm">
+            {next.routine_exercises.length} exercises
+            <ChangeNext routines={routines.map(({ id, name }) => ({ id, name }))} />
+          </p>
         </div>
         <StartWorkoutButton routineId={next.id} />
       </div>
