@@ -1,12 +1,19 @@
 import Link from "next/link";
-import { CircleCheck, Dumbbell, Moon, Play } from "lucide-react";
+import { CircleCheck, Dumbbell, Moon, Play, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StartWorkoutButton } from "@/components/workouts/start-workout-button";
 import { formatClock, routineForDay } from "@/lib/workout";
 import { isoWeekday } from "@/lib/dates";
 import type { RoutineWithExercises, ScheduleDay, Workout } from "@/lib/types";
+import type { Programme } from "@/lib/workouts";
 
-/** Today's planned workout with a Start button, or Resume when one is in progress. */
+export type PartnerNext = { name: string; routine: string; day: number } | null;
+
+/**
+ * Today's workout: Resume when one is in progress, "done today", or what's up
+ * next (the next Day in a flexible programme, or today's routine in a weekday
+ * plan) with a Start button. A flexible programme also shows your partner's next.
+ */
 export function TodayWorkout({
   today,
   now,
@@ -14,6 +21,8 @@ export function TodayWorkout({
   routines,
   schedule,
   doneToday,
+  flexible = null,
+  partner = null,
 }: {
   today: string;
   now: number;
@@ -22,10 +31,63 @@ export function TodayWorkout({
   schedule: ScheduleDay[];
   /** Workouts already finished today. */
   doneToday: Workout[];
+  flexible?: Programme["flexible"];
+  partner?: PartnerNext;
 }) {
+  return (
+    <div className="bg-card overflow-hidden rounded-xl border">
+      <Main
+        today={today}
+        now={now}
+        active={active}
+        routines={routines}
+        schedule={schedule}
+        doneToday={doneToday}
+        flexible={flexible}
+      />
+      {flexible && partner && (
+        <p className="text-muted-foreground flex items-center gap-2 border-t px-4 py-2 text-sm">
+          <Users className="size-4 shrink-0" />
+          <span className="min-w-0">
+            {!active && !doneToday.length && partner.day === flexible.day ? (
+              <span className="text-foreground font-medium">
+                You&apos;re both on Day {partner.day}: train together
+              </span>
+            ) : (
+              <>
+                {partner.name}&apos;s next: {partner.routine}
+              </>
+            )}
+          </span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Main({
+  today,
+  now,
+  active,
+  routines,
+  schedule,
+  doneToday,
+  flexible,
+}: {
+  today: string;
+  now: number;
+  active: Workout | null;
+  routines: RoutineWithExercises[];
+  schedule: ScheduleDay[];
+  doneToday: Workout[];
+  flexible: Programme["flexible"];
+}) {
+  const week = flexible?.week;
+  const weekLine = week ? `${week.done} of ${week.goal} this week` : null;
+
   if (active) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-green-600/40 bg-green-600/10 p-4">
+      <div className="flex items-center gap-3 bg-green-600/10 p-4">
         <Dumbbell className="size-6 shrink-0 text-green-700 dark:text-green-400" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{active.name} in progress</p>
@@ -40,26 +102,49 @@ export function TodayWorkout({
     );
   }
 
-  const planned = routines.find((r) => r.id === routineForDay(schedule, isoWeekday(today)));
   if (doneToday.length > 0) {
     const last = doneToday[0];
     return (
-      <div className="bg-card flex items-center gap-3 rounded-xl border p-4">
+      <div className="flex items-center gap-3 p-4">
         <CircleCheck className="size-6 shrink-0 text-green-600" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{last.name} done today</p>
-          <Link href={`/workouts/${last.id}`} className="text-muted-foreground text-sm underline">
-            See the summary
-          </Link>
+          <p className="text-muted-foreground text-sm">
+            <Link href={`/workouts/${last.id}`} className="underline">
+              See the summary
+            </Link>
+            {weekLine && ` · ${weekLine}`}
+          </p>
         </div>
         <StartWorkoutButton routineId={null} label="Another" variant="outline" size="sm" />
       </div>
     );
   }
 
+  if (flexible?.next) {
+    const next = flexible.next;
+    return (
+      <div className="flex items-center gap-3 p-4">
+        <Dumbbell className="size-6 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="text-muted-foreground text-xs">
+            Up next · {weekLine}
+            {week && week.left === 0 && ", goal reached"}
+          </p>
+          <p className="font-semibold">{next.name}</p>
+          <p className="text-muted-foreground text-sm">{next.routine_exercises.length} exercises</p>
+        </div>
+        <StartWorkoutButton routineId={next.id} />
+      </div>
+    );
+  }
+
+  const planned = flexible
+    ? undefined
+    : routines.find((r) => r.id === routineForDay(schedule, isoWeekday(today)));
   if (planned) {
     return (
-      <div className="bg-card flex items-center gap-3 rounded-xl border p-4">
+      <div className="flex items-center gap-3 p-4">
         <Dumbbell className="size-6 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">Today: {planned.name}</p>
@@ -74,7 +159,7 @@ export function TodayWorkout({
   }
 
   return (
-    <div className="bg-card flex items-center gap-3 rounded-xl border p-4">
+    <div className="flex items-center gap-3 p-4">
       <Moon className="text-muted-foreground size-6 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="font-semibold">Rest day</p>

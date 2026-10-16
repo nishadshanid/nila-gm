@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isoWeekday, todayIST, TZ } from "@/lib/dates";
+import { isoWeekday, startOfWeek, todayIST, TZ } from "@/lib/dates";
+import { nextRoutine, weekProgress } from "@/lib/workout";
 import { sendPush } from "@/lib/push";
 import { dueReminders, type ReminderSettings } from "@/lib/reminders";
 
@@ -10,6 +11,7 @@ type ProfileRow = ReminderSettings & {
   id: string;
   push_notifications: boolean;
   target_water_ml: number;
+  weekly_goal: number | null;
 };
 
 /** India time as minutes after midnight. */
@@ -43,7 +45,7 @@ export async function runTick(db: SupabaseClient, now = new Date()): Promise<Tic
   const minutes = minutesIST(now);
   const errors: string[] = [];
 
-  const [profiles, planned, workouts, water, meals, weights] = await Promise.all([
+  const [profiles, planned, workouts, water, meals, weights, routines, recent] = await Promise.all([
     db
       .from("profiles")
       .select("*")
@@ -74,15 +76,49 @@ export async function runTick(db: SupabaseClient, now = new Date()): Promise<Tic
       .eq("date", date)
       .not("weight_kg", "is", null)
       .then((r) => rows<{ owner_id: string }>(r, "weigh-ins")),
+    db
+      .from("routines")
+      .select("id, owner_id, name")
+      .order("position")
+      .order("created_at")
+      .then((r) => rows<{ id: string; owner_id: string; name: string }>(r, "routines")),
+    // Finished workouts, newest first: this week's count and the last routine done.
+    db
+      .from("workouts")
+      .select("owner_id, date, routine_id")
+      .not("ended_at", "is", null)
+      .order("started_at", { ascending: false })
+      .limit(100)
+      .then((r) =>
+        rows<{ owner_id: string; date: string; routine_id: string | null }>(r, "recent workouts"),
+      ),
   ]);
+  const monday = startOfWeek(date);
 
   let sent = 0;
   for (const p of profiles) {
     if (!p.push_notifications) continue;
+    let flexible = null;
+    if (p.weekly_goal) {
+      const mine = recent.filter((w) => w.owner_id === p.id);
+      const own = routines.filter((r) => r.owner_id === p.id);
+      const next = nextRoutine(own, mine.find((w) => w.routine_id)?.routine_id ?? null);
+      const week = weekProgress(
+        mine.filter((w) => w.date >= monday).map((w) => w.date),
+        p.weekly_goal,
+        date,
+      );
+      flexible = {
+        next: next?.name ?? "Your next workout",
+        left: week.left,
+        daysLeft: week.daysLeft,
+      };
+    }
     const due = dueReminders(
       p,
       {
         weekday,
+        flexible,
         plannedRoutine: planned.find((x) => x.owner_id === p.id)?.routine?.name ?? null,
         trained: workouts.some((w) => w.owner_id === p.id),
         waterMl: water.filter((w) => w.owner_id === p.id).reduce((t, w) => t + w.ml, 0),

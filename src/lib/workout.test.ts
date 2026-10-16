@@ -8,6 +8,9 @@ import {
   formatMinutes,
   formatSet,
   formatSetShort,
+  nextRoutine,
+  readyToProgress,
+  weekProgress,
   lastTimeByExercise,
   repsLabel,
   routineForDay,
@@ -157,5 +160,37 @@ describe("formatting", () => {
     expect(repsLabel(8, 12)).toBe("8–12");
     expect(repsLabel(10, 10)).toBe("10");
     expect(repsLabel(null, null)).toBe("");
+  });
+});
+
+describe("flexible programme", () => {
+  const days = [{ id: "d1" }, { id: "d2" }, { id: "d3" }];
+  it("goes to the next day, wraps, and starts at day 1", () => {
+    expect(nextRoutine(days, "d1")?.id).toBe("d2");
+    expect(nextRoutine(days, "d3")?.id).toBe("d1");
+    expect(nextRoutine(days, null)?.id).toBe("d1");
+    expect(nextRoutine(days, "gone")?.id).toBe("d1");
+    expect(nextRoutine([], null)).toBeNull();
+  });
+
+  it("counts the week and whether today can be a rest day", () => {
+    // Thursday 15 Oct 2026: Thu–Sun is 4 days left.
+    const p = weekProgress(["2026-10-12", "2026-10-13", "2026-10-09"], 5, "2026-10-15");
+    expect(p).toEqual({ done: 2, goal: 5, left: 3, daysLeft: 4, restOk: true });
+    // Friday with 3 still to do: no room for a rest day.
+    expect(weekProgress(["2026-10-12", "2026-10-13"], 5, "2026-10-16").restOk).toBe(false);
+    // Goal met: always fine to rest.
+    expect(weekProgress(Array(5).fill("2026-10-12"), 5, "2026-10-18")).toMatchObject({
+      left: 0,
+      daysLeft: 1,
+      restOk: true,
+    });
+  });
+
+  it("says when to add weight", () => {
+    expect(readyToProgress([{ reps: 12 }, { reps: 12 }, { reps: 13 }], 12)).toBe(true);
+    expect(readyToProgress([{ reps: 12 }, { reps: 11 }], 12)).toBe(false);
+    expect(readyToProgress([], 12)).toBe(false);
+    expect(readyToProgress([{ reps: 12 }], null)).toBe(false);
   });
 });

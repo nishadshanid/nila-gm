@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, CloudOff, EllipsisVertical, Plus, Trash2 } from "lucide-react";
+import { Check, CloudOff, EllipsisVertical, Plus, Repeat, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,18 +14,33 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { ExercisePicker } from "@/components/workouts/exercise-picker";
+import { SwapDialog } from "@/components/workouts/swap-dialog";
 import { tapFeedback } from "@/lib/haptics";
-import { equipmentLabel, muscleLabel } from "@/lib/exercise-meta";
-import { formatClock, formatKg, formatSetShort, repsLabel, volume } from "@/lib/workout";
+import { equipmentLabel, focusLabel } from "@/lib/exercise-meta";
+import {
+  formatClock,
+  formatKg,
+  formatSetShort,
+  readyToProgress,
+  repsLabel,
+  volume,
+} from "@/lib/workout";
 import type { Exercise, ExerciseKind, WorkoutSet } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { dropSet, flushSets, queueSet } from "@/lib/set-queue";
 import type { SetValuesInput } from "@/lib/workout-schema";
-import { addSets, deleteWorkout, finishWorkout, removeSets, updateSet } from "../../actions";
+import {
+  addSets,
+  deleteWorkout,
+  finishWorkout,
+  removeSets,
+  swapExercise,
+  updateSet,
+} from "../../actions";
 import { RestTimer } from "./rest-timer";
 
 type Previous = Pick<WorkoutSet, "set_no" | "reps" | "weight_kg" | "duration_s" | "distance_m">;
-type Target = { reps_min: number | null; reps_max: number | null };
+type Target = { reps_min: number | null; reps_max: number | null; notes: string | null };
 
 /** What's typed into a set's boxes. Time is minutes for cardio, seconds for holds. */
 type Fields = { weight: string; reps: string; time: string; km: string };
@@ -68,17 +83,25 @@ export function Logger({
   workout,
   initialSets,
   exercises,
-  lastTime,
-  targets,
+  lastTime: initialLastTime,
+  targets: initialTargets,
+  routineNotes = null,
 }: {
   workout: { id: string; name: string; started_at: string };
   initialSets: WorkoutSet[];
   exercises: Exercise[];
   lastTime: Record<string, Previous[]>;
   targets: Record<string, Target>;
+  routineNotes?: string | null;
 }) {
   const router = useRouter();
   const [known, setKnown] = useState(exercises);
+  const [lastTime, setLastTime] = useState(initialLastTime);
+  const [targets, setTargets] = useState(initialTargets);
+  /** The block being swapped: its position and exercise. */
+  const [swapping, setSwapping] = useState<{ position: number; exercise: Exercise } | null>(null);
+  /** The full exercise list is open to pick a swap rather than to add. */
+  const [pickingSwap, setPickingSwap] = useState<{ position: number; from: string } | null>(null);
   const byId = useMemo(() => new Map(known.map((e) => [e.id, e])), [known]);
   const kindOf = useCallback((id: string) => byId.get(id)?.kind ?? "strength", [byId]);
 
@@ -278,6 +301,30 @@ export function Logger({
     });
   }
 
+  function swap(position: number, fromId: string, exercise: Exercise) {
+    setSwapping(null);
+    setPickingSwap(null);
+    if (!navigator.onLine) return void toast("No signal. Swap it when you're back online.");
+    if (!byId.has(exercise.id)) setKnown((k) => [...k, exercise]);
+    startTransition(async () => {
+      const result = await online(() => swapExercise(workout.id, position, exercise.id));
+      if (!result) return;
+      if (!result.ok) return void toast.error(result.error);
+      const changed = result.sets as WorkoutSet[];
+      const ids = new Set(changed.map((x) => x.id));
+      setSets((all) => [...all.filter((x) => !ids.has(x.id)), ...changed]);
+      setFields((all) => ({
+        ...all,
+        ...Object.fromEntries(changed.map((x) => [x.id, fieldsOf(x, exercise.kind)])),
+      }));
+      setLastTime((all) => ({ ...all, [exercise.id]: result.last }));
+      // Keep the plan's sets × reps for the replacement.
+      setTargets((all) => (all[fromId] ? { ...all, [exercise.id]: all[fromId] } : all));
+      for (const id of ids) dropSet(workout.id, id);
+      toast.success(`Swapped to ${exercise.name}`);
+    });
+  }
+
   function addExercise(exercise: Exercise) {
     if (!navigator.onLine) return void toast("No signal. Add it when you're back online.");
     if (!byId.has(exercise.id)) setKnown((k) => [...k, exercise]);
@@ -350,6 +397,7 @@ export function Logger({
           Finish
         </Button>
       </div>
+      {routineNotes && <p className="text-muted-foreground -mt-2 mb-4 text-xs">{routineNotes}</p>}
       {waiting > 0 && (
         <p
           role="status"
@@ -367,6 +415,12 @@ export function Logger({
           const kind = exercise?.kind ?? "strength";
           const target = targets[block[0].exercise_id];
           const targetText = target ? repsLabel(target.reps_min, target.reps_max) : "";
+          const goHeavier =
+            kind === "strength" &&
+            target?.reps_max &&
+            readyToProgress(lastTime[block[0].exercise_id], target.reps_max)
+              ? target.reps_max
+              : null;
           return (
             <section key={position} className="bg-card rounded-xl border p-3">
               <div className="mb-2 flex items-start gap-2">
@@ -374,8 +428,14 @@ export function Logger({
                   <h2 className="truncate font-semibold">{exercise?.name ?? "Exercise"}</h2>
                   {exercise && (
                     <p className="text-muted-foreground text-xs">
-                      {muscleLabel(exercise.muscle)} · {equipmentLabel(exercise.equipment)}
-                      {targetText && ` · target ${targetText} reps`}
+                      {focusLabel(exercise)} · {equipmentLabel(exercise.equipment)}
+                      {targetText && ` · target ${targetText}`}
+                      {target?.notes && ` · ${target.notes}`}
+                    </p>
+                  )}
+                  {goHeavier && (
+                    <p className="mt-0.5 text-xs font-medium text-green-700 dark:text-green-400">
+                      Hit {goHeavier} on every set last time: go a little heavier
                     </p>
                   )}
                 </div>
@@ -386,6 +446,11 @@ export function Logger({
                     <EllipsisVertical />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {exercise && block.some((x) => !x.done) && (
+                      <DropdownMenuItem onClick={() => setSwapping({ position, exercise })}>
+                        <Repeat /> Swap exercise
+                      </DropdownMenuItem>
+                    )}
                     {block.length > 1 && (
                       <DropdownMenuItem onClick={() => removeFromBlock([block.at(-1)!.id])}>
                         <Trash2 /> Remove last set
@@ -535,10 +600,29 @@ export function Logger({
       </Button>
 
       <ExercisePicker
-        open={picking}
-        onOpenChange={setPicking}
+        open={picking || pickingSwap !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPicking(false);
+            setPickingSwap(null);
+          }
+        }}
         exercises={known}
-        onPick={addExercise}
+        onPick={(e) =>
+          pickingSwap ? swap(pickingSwap.position, pickingSwap.from, e) : addExercise(e)
+        }
+      />
+      <SwapDialog
+        exercise={swapping?.exercise ?? null}
+        onOpenChange={(open) => !open && setSwapping(null)}
+        exercises={known}
+        exclude={[...new Set(sets.map((x) => x.exercise_id))]}
+        onPick={(e) => swapping && swap(swapping.position, swapping.exercise.id, e)}
+        onSearchAll={() => {
+          if (!swapping) return;
+          setPickingSwap({ position: swapping.position, from: swapping.exercise.id });
+          setSwapping(null);
+        }}
       />
       <RestTimer endAt={restEnd} onChange={setRestEnd} />
       <FinishDialog

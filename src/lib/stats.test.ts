@@ -79,3 +79,9 @@ describe("weekStats", () => {
     ).toBeNull();
   });
 });
+
+describe("weekStats with a weekly goal", () => {
+  it("counts workouts against the goal instead of planned weekdays", () => {
+    expect(weekStats({ ...base, weeklyGoal: 5 }).planned).toBe(5);
+  });
+});

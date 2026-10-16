@@ -34,6 +34,8 @@ export type Profile = {
   weigh_in_weekday: number;
   weigh_in_at: string;
   notify_partner_workouts: boolean;
+  /** Workouts a week, done in order on any days. Null = fixed weekdays. */
+  weekly_goal: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -67,6 +69,10 @@ export type Exercise = {
   muscle: Muscle;
   equipment: Equipment;
   kind: ExerciseKind;
+  /** What it works, e.g. "Upper chest". Null for your own exercises. */
+  focus: string | null;
+  /** Movement, e.g. "incline_press"; same pattern = a good swap. */
+  pattern: string | null;
 };
 
 export type RoutineExercise = {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getHousehold } from "@/lib/household";
 import { relativeDay, toISTDate, todayIST } from "@/lib/dates";
-import { equipmentLabel, muscleLabel } from "@/lib/exercise-meta";
+import { equipmentLabel, focusLabel, swapsFor } from "@/lib/exercise-meta";
 import { bests, e1rm, formatClock, formatKg, formatSet, isWorkingSet } from "@/lib/workout";
 import { getEarlierSets, getExercises } from "@/lib/workouts";
 
@@ -22,6 +22,7 @@ async function ExerciseHistory({ params }: { params: Promise<{ id: string }> }) 
   const sessions = new Map<string, typeof sets>();
   for (const s of sets) sessions.set(s.workout_id, [...(sessions.get(s.workout_id) ?? []), s]);
   const today = todayIST();
+  const swaps = swapsFor(exercise, exercises);
 
   const stats =
     exercise.kind === "strength"
@@ -41,7 +42,7 @@ async function ExerciseHistory({ params }: { params: Promise<{ id: string }> }) 
       <div className="mb-6">
         <h1 className="font-heading text-2xl font-semibold">{exercise.name}</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          {muscleLabel(exercise.muscle)} · {equipmentLabel(exercise.equipment)}
+          {focusLabel(exercise)} · {equipmentLabel(exercise.equipment)}
         </p>
       </div>
       <dl className="mb-6 grid grid-cols-3 gap-2 text-center">
@@ -87,6 +88,26 @@ async function ExerciseHistory({ params }: { params: Promise<{ id: string }> }) 
             );
           })}
         </ul>
+      )}
+      {swaps.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold">Works the same</h2>
+          <ul className="divide-y rounded-xl border">
+            {swaps.map((e) => (
+              <li key={e.id}>
+                <Link
+                  href={`/workouts/exercises/${e.id}`}
+                  className="hover:bg-muted/50 flex flex-col px-3 py-2.5"
+                >
+                  <span className="font-medium">{e.name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {focusLabel(e)} · {equipmentLabel(e.equipment)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </>
   );

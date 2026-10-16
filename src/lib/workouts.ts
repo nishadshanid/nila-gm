@@ -1,8 +1,15 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { lastTimeByExercise } from "@/lib/workout";
-import type { Exercise, RoutineWithExercises, ScheduleDay, Workout, WorkoutSet } from "@/lib/types";
+import { lastTimeByExercise, nextRoutine, weekProgress, type WeekProgress } from "@/lib/workout";
+import type {
+  Exercise,
+  Profile,
+  RoutineWithExercises,
+  ScheduleDay,
+  Workout,
+  WorkoutSet,
+} from "@/lib/types";
 
 function check<T>(result: { data: unknown; error: { message: string } | null }, what: string): T {
   if (result.error) throw new Error(`Could not load ${what}: ${result.error.message}`);
@@ -15,7 +22,7 @@ export const getExercises = cache(async (): Promise<Exercise[]> => {
   return check<Exercise[]>(
     await supabase
       .from("exercises")
-      .select("id, owner_id, name, muscle, equipment, kind")
+      .select("id, owner_id, name, muscle, equipment, kind, focus, pattern")
       .order("name"),
     "exercises",
   );
@@ -134,4 +141,55 @@ export async function getEarlierSets(
 /** For each exercise, the sets from the last time you did it. */
 export async function getLastTime(ownerId: string, exerciseIds: string[], before: string) {
   return lastTimeByExercise(await getEarlierSets(ownerId, exerciseIds, before));
+}
+
+export type Programme = {
+  routines: RoutineWithExercises[];
+  schedule: ScheduleDay[];
+  active: Workout | null;
+  history: HistoryItem[];
+  /** Set when the person trains N times a week in order, on any days. */
+  flexible: {
+    next: RoutineWithExercises | null;
+    /** 1-based position of `next` in the programme ("Day 2"). */
+    day: number;
+    week: WeekProgress;
+  } | null;
+};
+
+/** Everything about someone's plan for today: routines, what's next, and the week so far. */
+export async function getProgramme(
+  person: Pick<Profile, "id" | "weekly_goal">,
+  today: string,
+): Promise<Programme> {
+  const [routines, schedule, active, history] = await Promise.all([
+    getRoutines(person.id),
+    getSchedule(person.id),
+    getActiveWorkout(person.id),
+    getHistory(person.id, 20),
+  ]);
+  let flexible: Programme["flexible"] = null;
+  if (person.weekly_goal) {
+    const next = nextRoutine(routines, history.find((w) => w.routine_id)?.routine_id ?? null);
+    flexible = {
+      next,
+      day: next ? routines.indexOf(next) + 1 : 0,
+      week: weekProgress(
+        history.map((w) => w.date),
+        person.weekly_goal,
+        today,
+      ),
+    };
+  }
+  return { routines, schedule, active, history, flexible };
+}
+
+/** "Aabi's next: Day 2 · Upper Body", for the workout card. */
+export function partnerNext(
+  partner: Pick<Profile, "name"> | null,
+  programme: Programme | null,
+): { name: string; routine: string; day: number } | null {
+  const next = programme?.flexible?.next;
+  if (!partner || !next || programme.active) return null;
+  return { name: partner.name, routine: next.name, day: programme.flexible!.day };
 }

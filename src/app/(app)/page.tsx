@@ -7,7 +7,7 @@ import { MacroRings, targetsOf } from "@/components/diet/macro-rings";
 import { getDayEntries } from "@/lib/diet";
 import { sum } from "@/lib/nutrition";
 import { TodayWorkout } from "@/components/workouts/today-workout";
-import { getActiveWorkout, getHistory, getRoutines, getSchedule } from "@/lib/workouts";
+import { getProgramme, partnerNext } from "@/lib/workouts";
 import { getHousehold } from "@/lib/household";
 import { DayComplete } from "@/components/celebrate/day-complete";
 import { HabitChecklist } from "@/components/habits/habit-checklist";
@@ -35,11 +35,9 @@ async function Today() {
   const { me, partner } = await getHousehold();
   const now = new Date();
   const today = todayIST(now);
-  const [routines, schedule, active, history, meals, day, lastWeighIn] = await Promise.all([
-    getRoutines(me.id),
-    getSchedule(me.id),
-    getActiveWorkout(me.id),
-    getHistory(me.id, 3),
+  const [programme, theirs, meals, day, lastWeighIn] = await Promise.all([
+    getProgramme(me, today),
+    partner?.weekly_goal ? getProgramme(partner, today) : null,
     getDayEntries(me.id, today),
     getHabitDay(me.id, today, me.target_water_ml),
     getLastWeighInDate(me.id),
@@ -50,8 +48,12 @@ async function Today() {
     (isoWeekday(today) === me.weigh_in_weekday ||
       !lastWeighIn ||
       daysBetween(lastWeighIn, today) > 7);
+  const { routines, schedule, active, history, flexible } = programme;
   const doneToday = history.filter((w) => w.date === today);
-  const restDay = !active && routineForDay(schedule, isoWeekday(today)) === null;
+  // Flexible: resting is fine while the week's goal still fits in the days left.
+  const restDay =
+    !active &&
+    (flexible ? flexible.week.restOk : routineForDay(schedule, isoWeekday(today)) === null);
   const complete = isDayComplete({
     workoutDone: doneToday.length > 0,
     restDay,
@@ -106,6 +108,8 @@ async function Today() {
           routines={routines}
           schedule={schedule}
           doneToday={doneToday}
+          flexible={flexible}
+          partner={partnerNext(partner, theirs)}
         />
       </section>
       <section className="mb-6">

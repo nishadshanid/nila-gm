@@ -22,7 +22,7 @@ async function Live({ params }: { params: Promise<{ id: string }> }) {
   const targets = Object.fromEntries(
     (routine?.routine_exercises ?? []).map((e) => [
       e.exercise_id,
-      { reps_min: e.reps_min, reps_max: e.reps_max },
+      { reps_min: e.reps_min, reps_max: e.reps_max, notes: e.notes },
     ]),
   );
   const previous = Object.fromEntries(
@@ -47,6 +47,7 @@ async function Live({ params }: { params: Promise<{ id: string }> }) {
       exercises={exercises}
       lastTime={previous}
       targets={targets}
+      routineNotes={routine?.notes ?? null}
     />
   );
 }

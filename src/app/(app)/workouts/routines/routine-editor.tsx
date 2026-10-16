@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Repeat, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/native-select";
 import { ExercisePicker } from "@/components/workouts/exercise-picker";
-import { equipmentLabel, muscleLabel } from "@/lib/exercise-meta";
+import { SwapDialog } from "@/components/workouts/swap-dialog";
+import { equipmentLabel, focusLabel } from "@/lib/exercise-meta";
 import type { Exercise, RoutineWithExercises } from "@/lib/types";
 import { deleteRoutine, saveRoutine } from "../actions";
 
@@ -23,6 +24,7 @@ type Row = {
   reps_min: string;
   reps_max: string;
   rest_s: number;
+  notes: string;
 };
 
 let nextKey = 0;
@@ -54,10 +56,14 @@ export function RoutineEditor({
         reps_min: e.reps_min ? String(e.reps_min) : "",
         reps_max: e.reps_max ? String(e.reps_max) : "",
         rest_s: e.rest_s,
+        notes: e.notes ?? "",
       })) ?? [],
   );
   const [known, setKnown] = useState(exercises);
   const [picking, setPicking] = useState(false);
+  /** The row being swapped for a same-area exercise. */
+  const [swapping, setSwapping] = useState<Row | null>(null);
+  const [pickingSwap, setPickingSwap] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const byId = new Map(known.map((e) => [e.id, e]));
@@ -84,8 +90,17 @@ export function RoutineEditor({
         reps_min: strength ? "8" : "",
         reps_max: strength ? "12" : "",
         rest_s: strength ? 90 : 60,
+        notes: "",
       },
     ]);
+  }
+
+  /** Replaces a row's exercise, keeping its sets, reps, rest and note. */
+  function swapRow(key: string, exercise: Exercise) {
+    if (!byId.has(exercise.id)) setKnown((k) => [...k, exercise]);
+    update(key, { exercise_id: exercise.id });
+    setSwapping(null);
+    setPickingSwap(null);
   }
 
   function submit(e: React.FormEvent) {
@@ -102,6 +117,7 @@ export function RoutineEditor({
             reps_min: Number(r.reps_min) || null,
             reps_max: Number(r.reps_max) || null,
             rest_s: r.rest_s,
+            notes: r.notes,
           })),
         },
         routine?.id,
@@ -156,10 +172,20 @@ export function RoutineEditor({
                   </p>
                   {exercise && (
                     <p className="text-muted-foreground text-xs">
-                      {muscleLabel(exercise.muscle)} · {equipmentLabel(exercise.equipment)}
+                      {focusLabel(exercise)} · {equipmentLabel(exercise.equipment)}
                     </p>
                   )}
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Swap for a similar exercise"
+                  disabled={!exercise}
+                  onClick={() => setSwapping(row)}
+                >
+                  <Repeat />
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
@@ -246,6 +272,14 @@ export function RoutineEditor({
                   </NativeSelect>
                 </label>
               </div>
+              <Input
+                value={row.notes}
+                onChange={(e) => update(row.key, { notes: e.target.value })}
+                placeholder="Note (optional), e.g. each leg, 30–60 sec"
+                aria-label="Note"
+                maxLength={200}
+                className="h-8 text-sm"
+              />
             </div>
           );
         })}
@@ -285,7 +319,29 @@ export function RoutineEditor({
         </Button>
       </div>
 
-      <ExercisePicker open={picking} onOpenChange={setPicking} exercises={known} onPick={add} />
+      <ExercisePicker
+        open={picking || pickingSwap !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPicking(false);
+            setPickingSwap(null);
+          }
+        }}
+        exercises={known}
+        onPick={(e) => (pickingSwap ? swapRow(pickingSwap, e) : add(e))}
+      />
+      <SwapDialog
+        exercise={swapping ? (byId.get(swapping.exercise_id) ?? null) : null}
+        onOpenChange={(open) => !open && setSwapping(null)}
+        exercises={known}
+        exclude={rows.map((r) => r.exercise_id)}
+        onPick={(e) => swapping && swapRow(swapping.key, e)}
+        onSearchAll={() => {
+          if (!swapping) return;
+          setPickingSwap(swapping.key);
+          setSwapping(null);
+        }}
+      />
     </form>
   );
 }

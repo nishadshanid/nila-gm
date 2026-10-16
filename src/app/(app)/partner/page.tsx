@@ -8,7 +8,7 @@ import { PersonDot } from "@/components/person-dot";
 import { MacroRings, targetsOf } from "@/components/diet/macro-rings";
 import { HabitIconView } from "@/components/habits/habit-icon";
 import { getHousehold } from "@/lib/household";
-import { getActiveWorkout, getHistory, getRoutines, getSchedule } from "@/lib/workouts";
+import { getProgramme } from "@/lib/workouts";
 import { getDayEntries } from "@/lib/diet";
 import { getHabitDay } from "@/lib/habit-data";
 import { getBodyMetrics } from "@/lib/body-data";
@@ -42,17 +42,19 @@ async function PartnerDay() {
       </p>
     );
   }
-  const [routines, schedule, active, history, meals, day, metrics] = await Promise.all([
-    getRoutines(partner.id),
-    getSchedule(partner.id),
-    getActiveWorkout(partner.id),
-    getHistory(partner.id, 5),
+  const [programme, meals, day, metrics] = await Promise.all([
+    getProgramme(partner, today),
     getDayEntries(partner.id, today),
     getHabitDay(partner.id, today, partner.target_water_ml),
     getBodyMetrics(partner.id),
   ]);
+  const { routines, schedule, active, flexible } = programme;
+  const history = programme.history.slice(0, 5);
   const doneToday = history.filter((w) => w.date === today);
-  const planned = routines.find((r) => r.id === routineForDay(schedule, isoWeekday(today)));
+  const planned = flexible
+    ? null
+    : routines.find((r) => r.id === routineForDay(schedule, isoWeekday(today)));
+  const week = flexible ? ` · ${flexible.week.done} of ${flexible.week.goal} this week` : "";
   const weight = summarize(
     movingAverage(
       metrics.flatMap((m) => (m.weight_kg != null ? [{ date: m.date, kg: m.weight_kg }] : [])),
@@ -81,6 +83,15 @@ async function PartnerDay() {
               <Link href={`/workouts/${doneToday[0].id}`} className="font-semibold underline">
                 {doneToday[0].name} done
               </Link>
+              <span className="text-muted-foreground text-sm">{week}</span>
+            </>
+          ) : flexible?.next ? (
+            <>
+              <Dumbbell className="text-muted-foreground size-6 shrink-0" />
+              <p className="font-semibold">
+                Next: {flexible.next.name}
+                <span className="text-muted-foreground font-normal">{week}</span>
+              </p>
             </>
           ) : planned ? (
             <>

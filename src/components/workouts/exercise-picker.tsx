@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/native-select";
-import { EQUIPMENT, KINDS, MUSCLES, equipmentLabel, muscleLabel } from "@/lib/exercise-meta";
+import { EQUIPMENT, KINDS, MUSCLES, equipmentLabel, focusLabel } from "@/lib/exercise-meta";
 import type { Equipment, Exercise, ExerciseKind, Muscle } from "@/lib/types";
 import { createExercise } from "@/app/(app)/workouts/actions";
 
@@ -32,7 +32,9 @@ export function ExercisePicker({
     return exercises.filter(
       (e) =>
         (!muscle || e.muscle === muscle) &&
-        words.every((w) => `${e.name} ${e.equipment} ${e.muscle}`.toLowerCase().includes(w)),
+        words.every((w) =>
+          `${e.name} ${e.equipment} ${e.muscle} ${e.focus ?? ""}`.toLowerCase().includes(w),
+        ),
     );
   }, [exercises, query, muscle]);
 
@@ -92,7 +94,7 @@ export function ExercisePicker({
                   >
                     <span className="font-medium">{e.name}</span>
                     <span className="text-muted-foreground text-xs">
-                      {muscleLabel(e.muscle)} · {equipmentLabel(e.equipment)}
+                      {focusLabel(e)} · {equipmentLabel(e.equipment)}
                       {e.owner_id && " · yours"}
                     </span>
                   </button>

@@ -17,8 +17,10 @@ export type ReminderSettings = {
 export type DayState = {
   /** ISO weekday, 1 = Monday. */
   weekday: number;
-  /** Name of the routine planned for today, or null on a rest day. */
+  /** Name of the routine planned for today, or null on a rest day (fixed weekdays). */
   plannedRoutine: string | null;
+  /** Set for a flexible programme (N a week, any days). */
+  flexible?: { next: string; left: number; daysLeft: number } | null;
   /** A workout was started (or finished) today. */
   trained: boolean;
   waterMl: number;
@@ -71,8 +73,25 @@ export function dueReminders(
 ): Due[] {
   const due: Due[] = [];
 
+  const flex = day.flexible;
   if (
     s.remind_workout &&
+    flex &&
+    // Only when today is needed to reach the week's goal.
+    flex.left > 0 &&
+    flex.left >= flex.daysLeft &&
+    !day.trained &&
+    inWindow(now, toMinutes(s.remind_workout_at))
+  ) {
+    due.push({
+      kind: "workout",
+      key: date,
+      body: `${flex.next} is next. ${flex.left} workout${flex.left === 1 ? "" : "s"} left this week.`,
+      path: "/workouts",
+    });
+  } else if (
+    s.remind_workout &&
+    !flex &&
     day.plannedRoutine &&
     !day.trained &&
     inWindow(now, toMinutes(s.remind_workout_at))

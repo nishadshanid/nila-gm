@@ -11,13 +11,7 @@ import { getHousehold } from "@/lib/household";
 import { isoWeekday, relativeDay, todayIST } from "@/lib/dates";
 import { muscleLabel } from "@/lib/exercise-meta";
 import { formatMinutes, volume } from "@/lib/workout";
-import {
-  getActiveWorkout,
-  getExercises,
-  getHistory,
-  getRoutines,
-  getSchedule,
-} from "@/lib/workouts";
+import { getExercises, getProgramme, partnerNext } from "@/lib/workouts";
 import { WeekPlan } from "./week-plan";
 
 export const metadata: Metadata = { title: "Workouts" };
@@ -26,14 +20,13 @@ async function Workouts() {
   await connection();
   const now = new Date();
   const today = todayIST(now);
-  const { me } = await getHousehold();
-  const [routines, schedule, active, history, exercises] = await Promise.all([
-    getRoutines(me.id),
-    getSchedule(me.id),
-    getActiveWorkout(me.id),
-    getHistory(me.id, 15),
+  const { me, partner } = await getHousehold();
+  const [programme, theirs, exercises] = await Promise.all([
+    getProgramme(me, today),
+    partner?.weekly_goal ? getProgramme(partner, today) : null,
     getExercises(),
   ]);
+  const { routines, schedule, active, history, flexible } = programme;
   const exerciseById = new Map(exercises.map((e) => [e.id, e]));
   const plan = Array.from(
     { length: 7 },
@@ -50,6 +43,8 @@ async function Workouts() {
           routines={routines}
           schedule={schedule}
           doneToday={history.filter((w) => w.date === today)}
+          flexible={flexible}
+          partner={partnerNext(partner, theirs)}
         />
       </div>
 
@@ -57,6 +52,8 @@ async function Workouts() {
         routines={routines.map(({ id, name }) => ({ id, name }))}
         plan={plan}
         todayWeekday={isoWeekday(today)}
+        goal={me.weekly_goal}
+        week={flexible?.week ?? null}
       />
 
       <section className="mb-6">

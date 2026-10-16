@@ -108,3 +108,27 @@ describe("meals and weigh-in", () => {
     expect(kinds(settings, { ...rest, weighedIn: true }, "07:30")).toEqual([]);
   });
 });
+
+describe("flexible programme reminder", () => {
+  const flexDay = (left: number, daysLeft: number): DayState => ({
+    ...day,
+    plannedRoutine: null,
+    flexible: { next: "Day 3 · Shoulders + Abs", left, daysLeft },
+  });
+  it("reminds only when today is needed for the goal", () => {
+    expect(dueReminders(settings, flexDay(3, 3), "2026-10-16", at("18:00"))).toEqual([
+      {
+        kind: "workout",
+        key: "2026-10-16",
+        body: "Day 3 · Shoulders + Abs is next. 3 workouts left this week.",
+        path: "/workouts",
+      },
+    ]);
+    expect(kinds(settings, flexDay(2, 4), "18:00")).toEqual([]);
+    expect(kinds(settings, flexDay(0, 1), "18:00")).toEqual([]);
+    expect(kinds(settings, { ...flexDay(3, 3), trained: true }, "18:00")).toEqual([]);
+  });
+  it("ignores the weekday plan in flexible mode", () => {
+    expect(kinds(settings, { ...flexDay(1, 4), plannedRoutine: "Leg day" }, "18:00")).toEqual([]);
+  });
+});

@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { notifyPartner } from "@/lib/notify-partner";
 import { findPRs, formatMinutes } from "@/lib/workout";
+import { getLastTime } from "@/lib/workouts";
 import type { Exercise } from "@/lib/types";
 import {
   exerciseInputSchema,
@@ -71,6 +72,11 @@ export async function saveSchedule(days: (string | null)[]): Promise<ActionResul
   if (days.length !== 7) return { ok: false, error: "Invalid plan" };
   const { supabase, user } = await me();
   if (!user) return signedOut;
+  const flexibleOff = await supabase
+    .from("profiles")
+    .update({ weekly_goal: null })
+    .eq("id", user.id);
+  if (flexibleOff.error) return { ok: false, error: flexibleOff.error.message };
   const removed = await supabase.from("routine_schedule").delete().eq("owner_id", user.id);
   if (removed.error) return { ok: false, error: removed.error.message };
   const rows = days.flatMap((routine_id, i) =>
@@ -80,6 +86,19 @@ export async function saveSchedule(days: (string | null)[]): Promise<ActionResul
     const { error } = await supabase.from("routine_schedule").insert(rows);
     if (error) return { ok: false, error: error.message };
   }
+  refresh();
+  return { ok: true };
+}
+
+/** A flexible programme: this many workouts a week, in order, on any days. Clears fixed days. */
+export async function saveWeeklyGoal(goal: number): Promise<ActionResult> {
+  if (!Number.isInteger(goal) || goal < 1 || goal > 7) return { ok: false, error: "Pick 1–7" };
+  const { supabase, user } = await me();
+  if (!user) return signedOut;
+  const { error } = await supabase.from("profiles").update({ weekly_goal: goal }).eq("id", user.id);
+  if (error) return { ok: false, error: error.message };
+  const cleared = await supabase.from("routine_schedule").delete().eq("owner_id", user.id);
+  if (cleared.error) return { ok: false, error: cleared.error.message };
   refresh();
   return { ok: true };
 }
@@ -96,7 +115,7 @@ export async function createExercise(
   const { data, error } = await supabase
     .from("exercises")
     .insert(parsed.data)
-    .select("id, owner_id, name, muscle, equipment, kind")
+    .select("id, owner_id, name, muscle, equipment, kind, focus, pattern")
     .single();
   if (error) return { ok: false, error: error.message };
   return { ok: true, exercise: data as Exercise };
@@ -195,6 +214,86 @@ export async function addSets(
     .select("*");
   if (error) return { ok: false, error: error.message };
   return { ok: true, sets: data };
+}
+
+/**
+ * Swaps an exercise in a workout for another that works the same area (a machine
+ * is taken or missing). Sets already done stay as they were; the rest switch to
+ * the new exercise, at the end of the workout if some were done. Returns the
+ * changed sets and last time's numbers for the new exercise.
+ */
+export async function swapExercise(
+  workoutId: string,
+  position: number,
+  exerciseId: string,
+): Promise<
+  Result<{
+    sets: Record<string, unknown>[];
+    last: {
+      set_no: number;
+      reps: number | null;
+      weight_kg: number | null;
+      duration_s: number | null;
+      distance_m: number | null;
+    }[];
+  }>
+> {
+  const { supabase, user } = await me();
+  if (!user) return signedOut;
+  const workout = await supabase
+    .from("workouts")
+    .select("id, started_at, workout_sets(id, position, set_no, done)")
+    .eq("id", workoutId)
+    .eq("owner_id", user.id)
+    .single();
+  if (workout.error) return { ok: false, error: workout.error.message };
+  const all = workout.data.workout_sets as {
+    id: string;
+    position: number;
+    set_no: number;
+    done: boolean;
+  }[];
+  const block = all.filter((x) => x.position === position).sort((a, b) => a.set_no - b.set_no);
+  const todo = block.filter((x) => !x.done);
+  if (todo.length === 0) return { ok: false, error: "Every set of this exercise is done already." };
+
+  const moved = todo.length < block.length;
+  const newPosition = moved ? Math.max(...all.map((x) => x.position)) + 1 : position;
+  const updated = await Promise.all(
+    todo.map((x, i) =>
+      supabase
+        .from("workout_sets")
+        .update({
+          exercise_id: exerciseId,
+          position: newPosition,
+          set_no: moved ? i + 1 : x.set_no,
+          reps: null,
+          weight_kg: null,
+          duration_s: null,
+          distance_m: null,
+        })
+        .eq("id", x.id)
+        .select("*")
+        .single(),
+    ),
+  );
+  const failed = updated.find((r) => r.error);
+  if (failed?.error) return { ok: false, error: failed.error.message };
+
+  const last = await getLastTime(user.id, [exerciseId], workout.data.started_at);
+  return {
+    ok: true,
+    sets: updated.map((r) => r.data as Record<string, unknown>),
+    last: (last.get(exerciseId) ?? [])
+      .filter((x) => !x.is_warmup)
+      .map(({ set_no, reps, weight_kg, duration_s, distance_m }) => ({
+        set_no,
+        reps,
+        weight_kg,
+        duration_s,
+        distance_m,
+      })),
+  };
 }
 
 export async function removeSets(ids: string[]): Promise<ActionResult> {

@@ -94,6 +94,7 @@ export async function getWeekStats(
   return weekStats({
     days,
     plannedWeekdays: rows<{ weekday: number }>(plan, "plan").map((p) => p.weekday),
+    weeklyGoal: person.weekly_goal,
     workouts: rows<{ date: string; workout_sets: WorkoutSet[] }>(workouts, "workouts").map((w) => ({
       date: w.date,
       volume: volume(w.workout_sets),

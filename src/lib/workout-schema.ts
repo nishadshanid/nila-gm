@@ -29,6 +29,13 @@ export const routineInputSchema = z.object({
           reps_min: optionalInt(1, 100),
           reps_max: optionalInt(1, 100),
           rest_s: z.number().int().min(0).max(900),
+          notes: z
+            .string()
+            .trim()
+            .max(200)
+            .nullable()
+            .optional()
+            .transform((v) => v || null),
         })
         .transform((e) =>
           // "12–8" means "8–12".

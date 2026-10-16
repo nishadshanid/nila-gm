@@ -6,6 +6,8 @@ export type WeekInput = {
   days: DateStr[];
   /** Weekdays (1 = Monday) with a routine in the plan. */
   plannedWeekdays: number[];
+  /** Workouts a week in a flexible programme; replaces the weekday plan when set. */
+  weeklyGoal?: number | null;
   /** Finished workouts this week, with their volume in kg. */
   workouts: { date: DateStr; volume: number }[];
   /** Food per day that has anything logged. */
@@ -64,7 +66,7 @@ export function weekStats(w: WeekInput): WeekStats {
   return {
     days: w.days.length,
     workouts: w.workouts.filter((x) => inWeek.has(x.date)).length,
-    planned: w.days.filter((d) => w.plannedWeekdays.includes(isoWeekday(d))).length,
+    planned: w.weeklyGoal ?? w.days.filter((d) => w.plannedWeekdays.includes(isoWeekday(d))).length,
     volume: Math.round(w.workouts.reduce((t, x) => t + (inWeek.has(x.date) ? x.volume : 0), 0)),
     foodDays: food.length,
     avgKcal: kcal === null ? null : Math.round(kcal),

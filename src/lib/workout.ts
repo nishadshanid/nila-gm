@@ -1,3 +1,4 @@
+import { addDays, daysBetween, startOfWeek, type DateStr } from "@/lib/dates";
 import type { ExerciseKind, ScheduleDay, WorkoutSet } from "@/lib/types";
 
 type SetValues = Pick<WorkoutSet, "reps" | "weight_kg" | "duration_s" | "distance_m">;
@@ -181,4 +182,49 @@ export function describePR(pr: PR): string {
           ? `${v} reps`
           : `${formatKg(v)} kg`;
   return `${PR_LABEL[pr.kind]}: ${fmt(pr.value)} (was ${fmt(pr.previous)})`;
+}
+
+/**
+ * In a flexible programme (N a week, in order): the routine after the one you did
+ * last, wrapping from the last day to the first. Day 1 if you haven't done any.
+ * `routines` must be in programme order.
+ */
+export function nextRoutine<T extends { id: string }>(
+  routines: T[],
+  lastRoutineId: string | null,
+): T | null {
+  if (routines.length === 0) return null;
+  const i = routines.findIndex((r) => r.id === lastRoutineId);
+  return routines[i < 0 ? 0 : (i + 1) % routines.length];
+}
+
+export type WeekProgress = {
+  done: number;
+  goal: number;
+  left: number;
+  /** Days left in the week (Monday–Sunday), today included. */
+  daysLeft: number;
+  /** A rest day today still leaves enough days for the goal. */
+  restOk: boolean;
+};
+
+/** Workouts this week against the goal. `dates` are finished workouts' dates. */
+export function weekProgress(dates: DateStr[], goal: number, today: DateStr): WeekProgress {
+  const monday = startOfWeek(today);
+  const done = dates.filter((d) => d >= monday && d <= today).length;
+  const left = Math.max(0, goal - done);
+  const daysLeft = daysBetween(today, addDays(monday, 6)) + 1;
+  return { done, goal, left, daysLeft, restOk: left < daysLeft };
+}
+
+/**
+ * Time to add weight: last time, every working set reached the top of the rep
+ * range (e.g. 12, 12, 12 on 8–12).
+ */
+export function readyToProgress(
+  last: Pick<WorkoutSet, "reps">[] | undefined,
+  repsMax: number | null,
+): boolean {
+  if (!last?.length || !repsMax) return false;
+  return last.every((s) => (s.reps ?? 0) >= repsMax);
 }
